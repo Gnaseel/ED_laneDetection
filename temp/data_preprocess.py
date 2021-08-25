@@ -5,16 +5,11 @@ import glob
 import argparse
 import math
 import matplotlib.pyplot as plt
-# from tqdm import tqdm
 import cv2
 import numpy as np
 from sklearn.model_selection import train_test_split
-import tensorflow as tf
 
-# line = "[0, 1, 2, 3]"
-# d = line.strip()
-# d_str = "[{0}]".format(','.join(d))
-# data.append(json.loads(d_str))
+
 def readJSON(dir, json_string):
     print(os.path.join(dir, json_string))
     json_paths = glob.glob(os.path.join(dir, json_string))
@@ -92,7 +87,6 @@ def getLabelFromPath(path, extension='jpg'):
                 img[x,y]=0
     # cv2.imshow("GRAY", img*100)
     # cv2.waitKey(0)
-
     # img = img/256
     return img    
 
@@ -160,4 +154,3 @@ if __name__=="__main__":
     # json_string = 'label_data_*.json'
     # data = readJSON(jsonPath, json_string)
     # convert_label(outputPath, data)
-
