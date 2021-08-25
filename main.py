@@ -13,9 +13,9 @@ def main():
     args = parse_arg()
     
     runner = EngineTheRun(args)
-    if args.mode == 't':
+    if args.mode == 'train':
         runner.train()
-    elif args.mode == 'i':
+    elif args.mode == 'inference':
         runner.inference()
         return
 

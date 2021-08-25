@@ -28,7 +28,6 @@ class Inference():
         #----------------------- Inference ---------------------------------------------
 
         output_tensor = model(input_tensor)
-
         output_image = output_tensor[0].permute(1,2,0).detach().numpy()
 
         #----------------------- Show Image ---------------------------------------------
