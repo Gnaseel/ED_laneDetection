@@ -1,4 +1,3 @@
-from torch._C import device
 from model.VGG16 import myModel
 import torch
 import numpy as np
@@ -6,7 +5,6 @@ import time
 from torchsummary import summary
 from torch.utils.data import TensorDataset, DataLoader
 import os
-import argparse
 
 class Trainer():
     

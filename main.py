@@ -1,18 +1,22 @@
 import argparse
-from tool.trainer import Trainer
+from engine.engine import EngineTheRun
 
 def parse_arg():
     parser = argparse.ArgumentParser(description='the parser')
     parser.add_argument('--mode', help='t = train, i = inference')
+    parser.add_argument('--show', help='Whether to show the image')
     args = parser.parse_args()
     return args
 def main():
     args = parse_arg()
-    print("{}  {}".format(args.mode, args.mode))
     
+    runner = EngineTheRun(args)
     if args.mode == 't':
-        runner = Trainer()
         runner.train()
+    elif args.mode == 'i':
+        runner.inference()
+        return
+
 
     
 
