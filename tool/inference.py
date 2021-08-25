@@ -1,46 +1,60 @@
 import torch
 import cv2
 import numpy as np
-from torch._C import dtype
-from torch.utils.data import TensorDataset, DataLoader
 from model.VGG16 import myModel
 
-
+import os
 class Inference():
-    def __init__(self):
-        print("init")
-    def inference():
-        model = myModel()
-        # model.load_state_dict(torch.load('D:\\Lane\\weight_file\\2021_08_24\\pre.pth'))
-        model.load_state_dict(torch.load('D:\\Lane\\weight_file\\2021_08_24\\epoch_15_index_0.pth'))
-        model.eval()
+    def __init__(self, args):
+        self.cfg = args
+        self.model_path = self.cfg.model_path
+        self.image_path = self.cfg.image_path
+        self.image_save_path = self.cfg.image_path
 
-        img = cv2.imread('D:\\lane_dataset\\train_set\\clips\\0313-1\\660\\20.jpg')
-        # img2 = cv2.imread('D:\\lane_dataset\\train_set\\clips\\0313-1\\60\\1.jpg')
+    def inference(self):
+
+        #----------------------- Get Model ---------------------------------------------
+
+        model = self.get_model()
+
+        #----------------------- Get Image ---------------------------------------------
+
+        img = cv2.imread(self.image_path)
         img = cv2.resize(img, (300, 180))
-        ten = torch.from_numpy(np.expand_dims(img, axis=0)).permute(0,3,1,2).float()
-        print(type(ten))
-        print(ten)
+        input_tensor = torch.from_numpy(np.expand_dims(img, axis=0)).permute(0,3,1,2).float()
 
-        out = model(ten)
 
-        print(type(out[0]))
-        print(out[0].shape)
-        print(out[0])
+        
+        #----------------------- Inference ---------------------------------------------
 
-        # temp1 = out[0].permute(1,2,0)
-        temp = out[0].permute(1,2,0).detach().numpy()
+        output_tensor = model(input_tensor)
 
+        output_image = output_tensor[0].permute(1,2,0).detach().numpy()
+
+        #----------------------- Show Image ---------------------------------------------
+        if self.cfg.show:
+            self.show_image(img, output_image)
+        #----------------------- Save Image ---------------------------------------------
+        
+        else:
+            self.save_image(self, output_image)
+
+    def get_model(self):
+        model = myModel()
+        model.load_state_dict(torch.load(self.model_path))
+        model.eval()
+        return model
+
+    def save_image(self, image):
+        dir = self.image_save_path.split(os.path.sep)
+        fir_dir = dir[:-1]+"_inference.jpg"
+        cv2.imwrite(fir_dir, image)
+        # cv2.imwrite(os.listdir(self.image_save_path)[:-1])
+        return
+
+    def show_image(self, img, output_image):
         cv2.imshow("ori",img)
-
-        # print(type(temp))
-        print(out[0].shape)
-        print(temp.shape)
-        cv2.imshow("output",temp)
+        cv2.imshow("output",output_image)
         for idx in range(10):
-            cv2.imshow("THRESHOLD "+str(idx),(temp-idx*0.05)*100)
-        # cv2.imwrite("abc.png",temp*100)
-        # np.savetxt("ttt.txt",np.squeeze(temp,axis=2), fmt='%.2f')
-            # cv2.imwrite('hihihi.png', predicted_image[2])
-
+            cv2.imshow("THRESHOLD "+str(idx),(output_image-idx*0.05)*100)
         cv2.waitKey(0)

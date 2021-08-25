@@ -10,6 +10,6 @@ class EngineTheRun():
         trainer = Trainer()
         trainer.train()
     def inference(self):
-        trainer = Inference()
+        trainer = Inference(self.cfg)
         trainer.inference()
       
