@@ -7,7 +7,7 @@ class EngineTheRun():
         self.cfg= args
         return
     def train(self):
-        trainer = Trainer()
+        trainer = Trainer(self.cfg)
         trainer.train()
     def inference(self):
         trainer = Inference(self.cfg)

@@ -1,6 +1,6 @@
-## ED-lane
+# ED-lane
 
-### Introduction
+## Introduction
 
 **This network is being prepared!!!**  
   
@@ -9,14 +9,9 @@ It has a very simple structure, so it can be easily used by people who just star
 Developer can easily change and test parameters of ED-lane according to the purpose.  
 
 
-### Contents
+## Contents  
 
-
-### Quick Start
-
-### Usage
-
-**Install**  
+## Install  
 
 Create a virtual environment by conda (option)
 
@@ -30,8 +25,17 @@ Install dependencies
 pip install -r requirements.txt
 ```
 
+## Quick Start
 
-**Data preprocess**  
+You can use pre-trained model with sample data
+```
+python main.py --mode inference --model_path .\sample\data\epoch_18_index_10.pth --image_path .\sample\data\1.jpg --show
+
+```
+## Usage
+
+
+### **Data preprocess**  
 
 This network supports CULane, TuSimple dataset.  
 * [Tusimple](https://github.com/TuSimple/tusimple-benchmark/issues/3)  
@@ -43,36 +47,40 @@ Get segmentation annotation from TuSimple dataset and save it.
 python tools/data_preprocess.py -tusimple --root $TUSIMPLEROOT
 ```
 
-**Train**  
+### **Train**  
 
-If you don't use save path argment, model is saved in ../weight_file/year_month_day/epock_n_index_n.pth
+Train the network. default backbone network is VGG16 model.  
+You can check the all arguments information by -help
 ```
-python main.py --mode train
+python main.py --mode train  
 
+python main.py -help
 ```
+*If you don't use save path argment, model is saved in ../weight_file/year_month_day/epock_n_index_n.pth*
 
-**Test**  
+### **Test**  
 
 ```
 python main.py --mode inference --model_path [YOUR MODEL PATH] --image_path [YOUR IMAGE PATH]
 
 ```
 
-### Supported Network
+## Supported Network
 
 **supported backbone**
 
  - [x] VGG  
  - [x] ResNet  
+ - [ ] MobileNet  
 
-### Contributing
+## Contributing
 
 All contributions for ED-lane are welcomed.  
 We are accepting any issue, pull requeast.  
 
-### Contack
+## Contact
 
 * email : hgnaseel@gmail.com
 
-<!-- ### Licenses
-### Reference -->
+<!-- ## Licenses
+## Reference -->
