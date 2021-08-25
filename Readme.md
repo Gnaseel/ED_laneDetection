@@ -9,6 +9,10 @@ It has a very simple structure, so it can be easily used by people who just star
 Developer can easily change and test parameters of ED-lane according to the purpose.  
 
 
+
+<image width="600" height="430" src="sample/readme_image/file1.png">
+<image width="600" height="240" src="sample/readme_image/file2.png">
+
 ## Contents  
 
 ## Install  

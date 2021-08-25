@@ -1,4 +1,5 @@
 from model.VGG16 import myModel
+from model.VGG16_rf20 import VGG16_rf20
 import torch
 import numpy as np
 import time
@@ -9,11 +10,11 @@ import os
 class Trainer():
     
 
-    def __init__(self):
+    def __init__(self, args):
         print("self")
         self.dataset_path = "D:\\lane_dataset\\image_data_0816.npy"
         self.model_path = ""
-        
+        self.cfg = args
         
 
     def train(self):
@@ -38,8 +39,11 @@ class Trainer():
 
 
         data_loader = DataLoader(dataset=train_dataset,batch_size=100,shuffle=True)
+        if self.cfg.backbone == "VGG16":
+            model = myModel()
+        elif self.cfg.backbone == "VGG16_rf20":
+            model = VGG16_rf20()
 
-        model = myModel()
 
         summary(model, (3, 180, 300),device='cpu')
 
