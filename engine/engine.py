@@ -1,6 +1,6 @@
 from tool.trainer import Trainer
 from tool.inference import Inference
-
+from back_logic.evaluate import EDeval
 
 class EngineTheRun():
     def __init__(self, args):
@@ -10,6 +10,13 @@ class EngineTheRun():
         trainer = Trainer(self.cfg)
         trainer.train()
     def inference(self):
-        trainer = Inference(self.cfg)
-        trainer.inference()
+        inferencer = Inference(self.cfg)
+        inferencer.inference()
+    def scoring(self):
+        inferencer = Inference(self.cfg)
+        anchor_tensor, path_list = inferencer.inference_dir()
+        evaluator = EDeval()
+        lane_tensor = evaluator.getH_sample_all(anchor_tensor, 160, 720, 10)
+        evaluator.save_JSON(lane_tensor, path_list)
+        print(lane_tensor[0])
       

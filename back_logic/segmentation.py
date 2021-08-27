@@ -50,7 +50,7 @@ class EDseg():
         anchorlist = anchorList()
         for y in range(temp_image.shape[0], 0,  -max_arg): # 180
             count=0
-            print("Y = {}".format(y))
+            # print("Y = {}".format(y))
             for x in range(0,temp_image.shape[1], max_arg): # 300
                 new_arr = temp_image[y-max_arg:y, x:x+max_arg]
                 max_idx = np.argmax(new_arr)
@@ -65,11 +65,11 @@ class EDseg():
                 if max > -1.5:
                     anchorlist.addNode(max_x_idx,max_y_idx,max)
                     count +=1
-            print("{} COUNT = {}".format(y,count))
-        print("DATA = {}".format(arr))
+        #     print("{} COUNT = {}".format(y,count))
+        # print("DATA = {}".format(arr))
 
         self.anchorlist = anchorlist
-        anchorlist.printList()
+        # anchorlist.printList()
         return anchorlist
 
 

@@ -13,6 +13,7 @@ class Trainer():
     def __init__(self, args):
         print("self")
         self.dataset_path = "D:\\lane_dataset\\image_data_0816.npy"
+        # self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/image_data_0816.npy"
         self.model_path = ""
         self.cfg = args
         

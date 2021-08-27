@@ -19,7 +19,9 @@ def main():
     elif args.mode == 'inference':
         runner.inference()
         return
-
+    elif args.mode == 'score':
+        runner.scoring()
+        return
 
     
 

@@ -49,8 +49,8 @@ class anchorList():
         if len(self.list[min_idx].nodelist) != 0:
             dist = self.getDist(self.list[min_idx].nodelist[-1], new_node)
             tilt = self.getTilt(self.list[min_idx].nodelist[-1], new_node)
-            print("DIST = {}".format(dist))
-            print("TILT = {}".format(tilt))
+            # print("DIST = {}".format(dist))
+            # print("TILT = {}".format(tilt))
             if tilt >= 0:
                 return
             if len(self.list[min_idx].nodelist)>4 and abs( tilt- self.list[min_idx].tilt_avg[-1])  >=60:
@@ -65,7 +65,7 @@ class anchorList():
         if len(self.list[min_idx].nodelist) <3:
             self.list[min_idx].tilt_avg.append(tilt)
         else:
-            print("TILT {} AVG {} ".format(tilt, self.list[min_idx].tilt[-2]*0.3 + tilt*0.7))
+            # print("TILT {} AVG {} ".format(tilt, self.list[min_idx].tilt[-2]*0.3 + tilt*0.7))
             self.list[min_idx].tilt_avg.append(self.list[min_idx].tilt[-2]*0.3 + tilt*0.7)
 
     def printList(self):
