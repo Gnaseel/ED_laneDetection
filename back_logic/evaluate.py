@@ -76,9 +76,8 @@ class EDeval():
                 print("{} ".format(cor), end=' ')
         return
     def save_JSON(self, lane_list, path_list):
-        file_name="abcde"
-        # with open('./back_logic/test_tasks_0627.json') as json_file:
-        # list=['foo', {'bar': ('baz', None, 1.0, 2)}]
+
+        lane_checker = [0 for i in range(30)]
         output_list = []
         for idx in range(len(lane_list)):
             output = dict()
@@ -87,10 +86,20 @@ class EDeval():
             output["run_time"] = 1
             output["raw_file"]=path_list[idx]
             output_str = json.dumps(output)
+            lane_num = len(lane_list[idx])
+
+            if lane_num > 10:
+                lane_num=10
+            lane_checker[lane_num] +=1
+            if lane_num>5:
+                continue
             output_list.append(output_str)
-        with open('./back_logic/test.json','w') as file:
+
+        with open('./back_logic/result.json','w') as file:
             # json_data = json.load(json_file)
             file.write('\n'.join(output_list))
         # print(output_list[0])
         # print(output_list[1])
+        for i in range(12):
+            print("{} Lane : {}".format(i, lane_checker[i]))
         return

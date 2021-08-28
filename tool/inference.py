@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from model.VGG16 import myModel
 from model.VGG16_rf20 import VGG16_rf20
+from model.ResNet34 import ResNet34
 import glob
 import os
 
@@ -50,7 +51,8 @@ class Inference():
             model = myModel()
         elif self.cfg.backbone == "VGG16_rf20":
             model = VGG16_rf20()
-
+        elif self.cfg.backbone == "ResNet34":
+            model = ResNet34()
         temp = glob.glob('*')
         print(temp)
         model.load_state_dict(torch.load(self.model_path))
@@ -99,6 +101,7 @@ class Inference():
 
         path=self.cfg.image_path
         folder_list= glob.glob(os.path.join(path,"*"))
+        # folder_list= glob.glob(os.path.join(path,"0530"))
         anchor_tensor = []
         pathlist = []
         # print("folder_list = {}".format(folder_list))
