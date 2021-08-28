@@ -10,9 +10,22 @@ Developer can easily change and test parameters of ED-lane according to the purp
 
 
 
-<image width="600" height="430" src="sample/readme_image/file1.png">
-<image width="600" height="240" src="sample/readme_image/file2.png">
+<image width="600" height="430" src="sample/readme_image/file1.png">  
+  
+**Input image, output segmentation map, probability data**  
 
+<image width="600" height="240" src="sample/readme_image/file2.png">
+<image width="600" height="240" src="sample/readme_image/file3.png">  
+  
+**Instance segmentation**  
+   
+
+<p></p>  
+
+**This network consists largely of two processes.**  
+  
+(a) A module that acquire a sementic segmentation map - with Enc-dec network  
+(b) A module that sperate sementic data to each lane - with hand-crafted feature using derivative  
 ## Contents  
 
 ## Install  
