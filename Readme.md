@@ -106,7 +106,7 @@ We are accepting any issue, pull requeast.
 
 ## Licenses  
   
-<image width="500" height="244" src="sample/readme_image/Apache_Software_Foundation_Logo.png">  
+<image width="250" height="120" src="sample/readme_image/Apache_Software_Foundation_Logo.png">  
   
 This package is released under the Apache 2.0 license.  
   
