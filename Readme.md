@@ -10,14 +10,19 @@ Developer can easily change and test parameters of ED-lane according to the purp
 
 
 
-<image width="600" height="430" src="sample/readme_image/file1.png">  
   
-**Input image, output segmentation map, probability data**  
+---
+### Preview  
 
-<image width="600" height="240" src="sample/readme_image/file2.png">
-<image width="600" height="240" src="sample/readme_image/file3.png">  
+**Input image, output segmentation map** 
+<p></p>  
+<image width="600" height="240" src="sample/readme_image/file2.png">  
   
 **Instance segmentation**  
+<p></p>  
+<image width="800" height="200" src="sample/readme_image/file3.png">  
+  
+  
    
 
 <p></p>  
