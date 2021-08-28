@@ -104,5 +104,10 @@ We are accepting any issue, pull requeast.
 
 * email : hgnaseel@gmail.com
 
-<!-- ## Licenses
-## Reference -->
+## Licenses  
+  
+<image width="500" height="244" src="sample/readme_image/Apache_Software_Foundation_Logo_.png">  
+  
+This package is released under the Apache 2.0 license.  
+  
+<!-- ## Reference -->
