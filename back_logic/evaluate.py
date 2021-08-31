@@ -91,8 +91,8 @@ class EDeval():
             if lane_num > 10:
                 lane_num=10
             lane_checker[lane_num] +=1
-            if lane_num>5:
-                continue
+            # if lane_num>5:
+            #     continue
             output_list.append(output_str)
 
         with open('./back_logic/result.json','w') as file:

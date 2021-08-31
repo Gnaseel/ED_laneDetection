@@ -49,58 +49,82 @@ class Trainer():
             summary(model, (3, 180, 300),device='cpu')
         elif self.cfg.backbone == "ResNet34":
             model = ResNet34()
-            summary(model, (3, 180, 300),device='cpu')
+            summary(model, (3, 176, 304),device='cpu')
 
 
         # print(model)
         # --------------------- Train -------------------------------------------
-        criterion = torch.nn.BCELoss(weight=torch.tensor([60]))
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+        criterion = torch.nn.BCELoss(weight=torch.tensor([40]), reduction="sum")
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
         model.train()
 
-        for epoch in range(30):
+        for epoch in range(70):
             for index, (data, target) in enumerate(data_loader):
                 optimizer.zero_grad()  # gradient init
                 # data
                 output = model(data)
 
 
-                output2np = output.permute(0,3,2,1)
-                arr = output2np.detach().numpy()
-                # print("Output Shape = {}".format(output.shape))
-                # print("Output_p Shape = {}".format(output2np.shape))
+                # print("target Shape = {}".format(target.shape))
+                # print("target Shape = {}".format(target.shape))
+                # print("target Shape = {}".format(target.shape))
+                # print("target Shape = {}".format(target.shape))
+                # target2np = target.permute(2,1,0)
+                # print("target_p Shape = {}".format(target2np.shape))
+                arr = target.detach().numpy()
                 # #----------------------------
-                # print("DATA type {}".format(type(arr)))
-                # print("DATA shape {}".format(arr.shape))
-                output_resize = np.array([])
-                for idx in range(arr.shape[0]):
-                    # print("INPUT type {}".format(arr[idx].shape))
-                    
-                    app = cv2.resize(arr[idx], (180,300))
-                    # print("INPUT2 type {}".format(app.shape))
-                    # app = cv2.resize(arr[idx].permute(), (180,300))
+                target_resize = np.array([])
+                # print("ARRSIZE ================== {}".format(arr.shape))
+                # print("ARRSIZE1 ================== {}".format(arr[0].shape))
+                # print("ARRSIZE2 ================== {}".format(arr[1].shape))
+                # cv2.imshow("SDFSDF", arr[0])
+                for idx in range(target.shape[0]):
+                    app = cv2.resize(arr[idx], (304,176))
+                    # print("app Shape = {}".format(app.shape))
+                    # cv2.imshow("APP", app)
+                    # cv2.waitKey(0)
 
-                    # print("arr  shape {}".format(arr[idx].shape))
-                    # print("DATA shape {}".format(app.shape))
-                    # print("APP shape {}".format(app.shape))
-                    output_resize = np.append(output_resize, app)
-                    # print("DATA shape {}".format(arr.shape))
+                    # app Shape = (304, 176)
+                    target_resize = np.append(target_resize, app)
 
-                output_resize = np.reshape(output_resize,(arr.shape[0], 300,180,1))
-                # print("!!!!!!!!!!!!!!!!!!!!!!!!!{}".format(output_resize.shape))
 
-                output_reTensor = torch.from_numpy(output_resize).permute(0,3,2,1).float()
-                output_reTensor.requires_grad=True
+                # print("TARGET {}".format(target.shape[0]))
+                target_resize = np.reshape(target_resize,(target.shape[0], 176, 304))
+                # cv2.imshow("tar 1{}",target_resize[0])
+                # cv2.imshow("tar 2{}",target_resize[1])
+                # cv2.imshow("tar 3{}",target_resize[99])
+                # cv2.waitKey(0)
+                # print("RETAR SHPAE {}".format(target_resize[0].shape))
+
+                target_reTensor = torch.tensor(torch.from_numpy(target_resize).float(), requires_grad=False)
+            
+                # print("RESULT Shape = {}".format(target_reTensor.shape))
+                # output_reTensor = torch.from_numpy(output_resize).permute(0,3,2,1).float()
                 # output_reTensor.grad_fn="SigmoidBackward"
-                # print("RESULT Shape = {}".format(output_reTensor.shape))
-                # np.savetxt('out1.txt', output[0][0].detach().numpy())
-                # np.savetxt('out2.txt', output_reTensor[0][0].detach().numpy())
                 # print("OUTPUT DATA = {}".format(output))
                 # print("RESULT DATA = {}".format(output_reTensor))
 
+                # print("TARGET = {}".format(target.shape))
+                # print("TARGET2 = {}".format(target_reTensor.shape))
+                loss = criterion(np.squeeze(output, axis = 1).float(), target_reTensor)
+
+                # print(target)
+                # print(target_reTensor)
+                # np.savetxt('out1.txt', torch.Tensor(target[0]).numpy(),"%d")
+                # np.savetxt('out2.txt', torch.Tensor(target_reTensor[0]).numpy(),fmt="%d")
+                
+                # dis = np.squeeze(output, axis = 1)
+                # print("SHAPE = {} ".format(dis.shape))
+                # cv2.imshow("tar ",output[0])
+            
                 #----------------------------
-                loss = criterion(np.squeeze(output_reTensor, axis = 1).float(), target)
+                # loss = criterion(np.squeeze(output, axis = 1).float(), target)
+
+                # np.savetxt('out1.txt', np.squeeze(output_reTensor.detach(), axis = 1).float()[3])
+                # np.savetxt('out2.txt', np.squeeze(output.detach(), axis = 1).float()[3])
+
+
                 loss.backward()  # backProp
                 optimizer.step()
                 print("IDX {}".format(index))

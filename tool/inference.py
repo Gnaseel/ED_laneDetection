@@ -70,12 +70,13 @@ class Inference():
         cv2.imshow("ori",img)
         cv2.imshow("output",output_image)
 
-
+        e = -0.1
+        e = 0.003
         for idx in range(10):
-            cv2.imshow("THRESHOLD "+str(idx),(output_image-idx*0.05-0.1)*100)
-
+            cv2.imshow("THRESHOLD "+str(idx),(output_image-idx*0.08+e)*60)
+        print(output_image)
         seg = EDseg()
-        anchorlist = seg.segmentation(output_image)
+        anchorlist = seg.segmentation(output_image,8)
         seg.showSegimage(img)
 
 
@@ -91,7 +92,7 @@ class Inference():
 
     def scoreSave(self, image):
         seg = EDseg()
-        anchorlist = seg.segmentation(image)
+        anchorlist = seg.segmentation(image,20)
 
 
     def inference_dir(self):
@@ -123,7 +124,7 @@ class Inference():
                 #----------------------- Get Image ---------------------------------------------
                 
                 img = cv2.imread(filepath)
-                img = cv2.resize(img, (300, 180))
+                img = cv2.resize(img, (304, 176))
                 input_tensor = torch.from_numpy(np.expand_dims(img, axis=0)).permute(0,3,1,2).float()
 
                 #----------------------- Inference ---------------------------------------------
@@ -131,7 +132,7 @@ class Inference():
                 output_tensor = model(input_tensor)
                 output_image = output_tensor[0].permute(1,2,0).detach().numpy()
                 seg = EDseg()
-                anchorlist = seg.segmentation(output_image)
+                anchorlist = seg.segmentation(output_image, 8)
                 anchor_tensor.append(anchorlist)
                 pathlist.append(filepath)
                 # seg.showSegimage(img)

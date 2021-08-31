@@ -41,11 +41,10 @@ class EDseg():
     def __init__(self):
         self.anchorlist = anchorList()
         return
-    def segmentation(self, image):
+    def segmentation(self, image, max_arg):
         temp_image = (image-6*0.05-0.1)*10
         temp_image = np.squeeze(temp_image, axis=2)
 
-        max_arg=10
         arr = []
         anchorlist = anchorList()
         for y in range(temp_image.shape[0], 0,  -max_arg): # 180
