@@ -69,17 +69,18 @@ class EDseg():
 
         self.anchorlist = anchorlist
         # anchorlist.printList()
-        return anchorlist
+        return anchorlist, image
 
 
-    def showSegimage(self,img):
+    def getSegimage(self,img):
+        re_img = img.copy()
         laneidx=0
         for idx, anchor in enumerate(self.anchorlist.list):
             if len(anchor.nodelist) < 0:
                 continue
             for node in anchor.nodelist:
-                    img = cv2.circle(img, (node.x,node.y), 1, color_list[laneidx])
+                    re_img = cv2.circle(img, (node.x,node.y), 1, color_list[laneidx])
             laneidx+=1
-        cv2.imshow("111",img)
+        # cv2.imshow("111",img)
         
-        return img
+        return re_img

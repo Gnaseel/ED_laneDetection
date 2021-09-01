@@ -4,6 +4,8 @@ import torch.nn as nn
 class VGG16_rf20(torch.nn.Module):
     def __init__(self):
         super(VGG16_rf20, self).__init__()
+        self.maxArg=10
+        self.output_size = [180,300]
 
         #------------------------------- ENCODER ------------------------------------------
         self.encoder1 = torch.nn.Sequential(

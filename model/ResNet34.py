@@ -4,6 +4,8 @@ from model.common.res_block import ResidualBlock
 class ResNet34(torch.nn.Module):
     def __init__(self):
         super(ResNet34, self).__init__()
+        self.maxArg=8
+        self.output_size = [176,304]
         #------------------------------- ENCODER ------------------------------------------
         self.conv7by7 = torch.nn.Sequential(
             torch.nn.Conv2d(3, 64, kernel_size=7, stride = 2, padding = 3),
@@ -20,19 +22,34 @@ class ResNet34(torch.nn.Module):
         #------------------------------- DECODER ------------------------------------------
 
         self.decoder1 = torch.nn.Sequential(
-            torch.nn.Conv2d(512, 256, kernel_size=1, stride = 1, padding = 0),
-            torch.nn.ConvTranspose2d(256, 256, kernel_size=3, stride=2, padding=0),
+#             torch.nn.Conv2d(512, 256, kernel_size=1, stride = 1, padding = 0),
+            torch.nn.Conv2d(512, 512, kernel_size=3, stride = 1, padding = 1),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(512, 256, kernel_size=3, stride=2, padding=0),
+            torch.nn.Conv2d(256, 256, kernel_size=3, stride = 1, padding = 1),
+            torch.nn.ReLU(),
+            
             torch.nn.ReLU(),
         )
         self.decoder2 = torch.nn.Sequential(
-            torch.nn.Conv2d(256, 128, kernel_size=1, stride = 1, padding = 0),
-            torch.nn.ConvTranspose2d(128, 128, kernel_size=2, stride=2, padding=0),
+#             torch.nn.Conv2d(256, 128, kernel_size=1, stride = 1, padding = 0),
+            torch.nn.ConvTranspose2d(256, 128, kernel_size=2, stride=2, padding=0),
+            torch.nn.Conv2d(128, 128, kernel_size=3, stride = 1, padding = 1),
             torch.nn.ReLU(),
+            
         )
         self.decoder3 = torch.nn.Sequential(
             torch.nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, padding=0),
+            torch.nn.Conv2d(64, 64 ,kernel_size=3, stride = 1, padding = 1),
+            torch.nn.ReLU(),
+            
             torch.nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2, padding=0),
+            torch.nn.Conv2d(32, 32, kernel_size=3, stride = 1, padding = 1),
+            torch.nn.ReLU(),
+            
             torch.nn.ConvTranspose2d(32, 1, kernel_size=2, stride=2, padding=0),
+#             torch.nn.Conv2d(128, 128, kernel_size=7, stride = 2, padding = 3),
+            
             torch.nn.Sigmoid(),
         )
 
