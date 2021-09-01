@@ -98,8 +98,15 @@ class EDeval():
         with open('./back_logic/result.json','w') as file:
             # json_data = json.load(json_file)
             file.write('\n'.join(output_list))
+        file.close()
         # print(output_list[0])
         # print(output_list[1])
+        for i in range(12):
+            print("{} Lane : {}".format(i, lane_checker[i]))
+        for i in range(12):
+            print("{} Lane : {}".format(i, lane_checker[i]))
+        for i in range(12):
+            print("{} Lane : {}".format(i, lane_checker[i]))
         for i in range(12):
             print("{} Lane : {}".format(i, lane_checker[i]))
         return

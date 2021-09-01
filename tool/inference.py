@@ -160,7 +160,7 @@ class Inference():
                 self.save_image(segImg, idx)
                 self.save_image(key_image*3000, str(idx)+"_key")
                 self.save_image(output_image*200, str(idx)+"_output")
-                if idx%100==0:
+                if idx%200==0:
                     print("Idx {}".format(idx))
                     # break
                 # if idx==200:

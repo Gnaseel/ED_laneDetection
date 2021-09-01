@@ -67,6 +67,8 @@ class EDseg():
         #     print("{} COUNT = {}".format(y,count))
         # print("DATA = {}".format(arr))
 
+        # anchorlist.list = anchorlist.filtering()
+        # anchorlist.list = anchorlist.intpEdge(temp_image.shape[0])
         self.anchorlist = anchorlist
         # anchorlist.printList()
         return anchorlist, image
@@ -79,7 +81,7 @@ class EDseg():
             if len(anchor.nodelist) < 0:
                 continue
             for node in anchor.nodelist:
-                    re_img = cv2.circle(img, (node.x,node.y), 1, color_list[laneidx])
+                re_img = cv2.circle(img, (node.x,node.y), 3, color_list[laneidx])
             laneidx+=1
         # cv2.imshow("111",img)
         
