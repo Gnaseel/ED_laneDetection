@@ -27,10 +27,6 @@ Developer can easily change and test parameters of ED-lane according to the purp
 
 <p></p>  
 
-~~**This network consists largely of two processes.**  ~~
-  
-~~(a) A module that acquire a sementic segmentation map - with Enc-dec network  ~~
-~~(b) A module that sperate sementic data to each lane - with hand-crafted feature using derivative  ~~
 **This network is end-to-end network.**  
   
 output is instance segmentation map and change it for benchmarking.
