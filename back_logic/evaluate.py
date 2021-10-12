@@ -95,7 +95,7 @@ class EDeval():
             #     continue
             output_list.append(output_str)
 
-        with open('./back_logic/result.json','w') as file:
+        with open('./back_logic/result_li.json','w') as file:
             # json_data = json.load(json_file)
             file.write('\n'.join(output_list))
         file.close()

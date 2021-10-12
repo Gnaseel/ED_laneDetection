@@ -4,6 +4,8 @@ import torch.nn as nn
 class myModel(torch.nn.Module):
     def __init__(self):
         super(myModel, self).__init__()
+        self.maxArg=8
+        self.output_size = [180,300]
 
         #------------------------------- ENCODER ------------------------------------------
         self.encoder1 = torch.nn.Sequential(

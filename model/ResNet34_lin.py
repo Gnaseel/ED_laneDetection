@@ -1,9 +1,9 @@
 import torch
 import torchvision.models.resnet as resnet
 from model.common.res_block import ResidualBlock
-class ResNet34(torch.nn.Module):
+class ResNet34_lin(torch.nn.Module):
     def __init__(self):
-        super(ResNet34, self).__init__()
+        super(ResNet34_lin, self).__init__()
         self.maxArg=8
         self.output_size = [176,304]
         #------------------------------- ENCODER ------------------------------------------
@@ -47,7 +47,7 @@ class ResNet34(torch.nn.Module):
             torch.nn.Conv2d(32, 32, kernel_size=3, stride = 1, padding = 1),
             torch.nn.ReLU(),
             
-            torch.nn.ConvTranspose2d(32, 1, kernel_size=2, stride=2, padding=0),
+            torch.nn.ConvTranspose2d(32, 7, kernel_size=2, stride=2, padding=0),
 #             torch.nn.Conv2d(128, 128, kernel_size=7, stride = 2, padding = 3),
             
 #             torch.nn.Sigmoid(),
