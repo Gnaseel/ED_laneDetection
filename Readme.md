@@ -20,17 +20,22 @@ Developer can easily change and test parameters of ED-lane according to the purp
   
 **Instance segmentation**  
 <p></p>  
-<image width="800" height="200" src="sample/readme_image/file3.png">  
+<image width="800" height="200" src="sample/readme_image/file3.gif">  
   
   
    
 
 <p></p>  
 
-**This network consists largely of two processes.**  
+~~**This network consists largely of two processes.**  ~~
   
-(a) A module that acquire a sementic segmentation map - with Enc-dec network  
-(b) A module that sperate sementic data to each lane - with hand-crafted feature using derivative  
+~~(a) A module that acquire a sementic segmentation map - with Enc-dec network  ~~
+~~(b) A module that sperate sementic data to each lane - with hand-crafted feature using derivative  ~~
+**This network is end-to-end network.**  
+  
+output is instance segmentation map and change it for benchmarking.
+
+
 ## Contents  
 
 ## Install  
@@ -83,10 +88,15 @@ python main.py -help
 ### **Test**  
 
 ```
-python main.py --mode inference --model_path [YOUR MODEL PATH] --image_path [YOUR IMAGE PATH]
+
+python main.py --mode inference --model_path .\sample\data\lane_t_2.pth --image_path  .\sample\data\2.jpg --backbone ResNet34_lin --show
+
+python main.py --mode inference --model_path .\sample\data\l5.pth --image_path  C:\Users\~~~\test_set\clips --backbone ResNet34_lin   --showAll
+
 
 ```
-
+*show All mode - inference the all image in directory, so you should use the path of directory*  
+*show     mode - inference the image of path, so you should use the path of image*
 ## Supported Network
 
 **supported backbone**
