@@ -2,7 +2,8 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 import ujson as json
 
-
+num_of_lane_gt=[0 for i in range(0,10)]
+num_of_lane_pred=[0 for i in range(0,10)]
 class LaneEval(object):
     lr = LinearRegression()
     pixel_thresh = 20
@@ -76,6 +77,11 @@ class LaneEval(object):
                 raise Exception('Some raw_file from your predictions do not exist in the test tasks.')
             gt = gts[raw_file]
             gt_lanes = gt['lanes']
+            # print(gt_lanes)
+            # print(len(gt_lanes))
+            num_of_lane_gt[len(gt_lanes)] +=1
+            num_of_lane_pred[len(pred_lanes)] +=1
+            # return
             y_samples = gt['h_samples']
             try:
                 a, p, n = LaneEval.bench(pred_lanes, gt_lanes, y_samples, run_time)
@@ -98,6 +104,12 @@ class LaneEval(object):
 if __name__ == '__main__':
     import sys
     print(LaneEval.bench_one_submit(sys.argv[1], sys.argv[2]))
+    print("GT")
+    print(num_of_lane_gt)
+    print(sum(num_of_lane_gt))
+    print("PRED")
+    print(num_of_lane_pred)
+    print(sum(num_of_lane_pred))
     # try:
         # if len(sys.argv) != 3:
         #     raise Exception('Invalid input arguments')
