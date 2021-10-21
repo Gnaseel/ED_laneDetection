@@ -10,6 +10,8 @@ def parse_arg():
     parser.add_argument('--image_path', help='The path of image file or folder')
     parser.add_argument('--save_path', default = 'VGG16', help='The path of output image inferenced')
     parser.add_argument('--backbone', default = 'VGG16', help='The backbone network')
+    parser.add_argument('--device', default = '-1', help='-1 = CPU, 0,1,2... = GPU')
+
     args = parser.parse_args()
     return args
 

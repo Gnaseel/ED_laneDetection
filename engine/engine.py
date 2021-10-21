@@ -7,10 +7,16 @@ from model.ResNet34 import ResNet34
 from model.ResNet50 import ResNet50
 from model.ResNet34_lin import ResNet34_lin
 from torchsummary import summary
+from torchvision import models
 import torch
 class EngineTheRun():
     def __init__(self, args):
         self.cfg= args
+        self.device = 'cpu'
+        if args.device!='-1':
+            self.device='cuda:'+args.device
+        print("My Device is {}".format(self.device))
+
         return
     def train(self):
         trainer = Trainer(self.cfg)
@@ -31,6 +37,7 @@ class EngineTheRun():
         inferencer.model = self.getModel()
         inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
         inferencer.model.eval()
+        inferencer.device = self.device
         
         
         if self.cfg.showAll:
@@ -50,6 +57,9 @@ class EngineTheRun():
         
     def getModel(self):
         model = None
+        # model = models.resnet34(pretrained=True)
+        # summary(model, (3, 368, 640),device='cpu')
+
         if self.cfg.backbone == "VGG16":
             model = myModel()
             summary(model, (3, 368, 640),device='cpu')
