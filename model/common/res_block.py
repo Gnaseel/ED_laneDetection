@@ -86,6 +86,7 @@ class ResidualBlock(torch.nn.Module):
             )
             return a
     def forward(self, x):
+<<<<<<< HEAD
 #         print(x.shape)
 #         print("dim_down is {}".format(self.dim_down))
 #         print("scale_down is {}".format(self.scale_down))
@@ -93,6 +94,10 @@ class ResidualBlock(torch.nn.Module):
 #         print(iden.shape)
         x = self.block(x)
 #         print(x.shape)
+=======
+        iden = self.insert_block(x)
+        x = self.block(x)
+>>>>>>> e2a860144717a9b2f0544391667f54edda5f0ee8
         x += iden
         x = self.relu(x)
         return x

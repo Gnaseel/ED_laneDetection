@@ -1,6 +1,7 @@
 from model.VGG16 import myModel
 from model.VGG16_rf20 import VGG16_rf20
 from model.ResNet34 import ResNet34
+from model.ResNet50 import ResNet50
 from model.ResNet34_lin import ResNet34_lin
 from tool.logger import Logger
 import tool.data_preprocess as datas
@@ -67,6 +68,7 @@ class Trainer():
 
         for epoch in range(70000):
             for index, (data, target) in enumerate(data_loader):
+                print("SDFSDF")
                 optimizer.zero_grad()  # gradient init
                 target2 = self.getTarget(target.detach())
 
@@ -158,5 +160,4 @@ class Trainer():
                     self.logger.logging(self)
 
         print("Train Finished.")
-
 
