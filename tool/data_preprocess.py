@@ -68,14 +68,14 @@ def convert_label(output_dir, data):
 def getImageFromPath(path, extension='jpg'):
     imgPath = path+"\\20."+extension
     img = cv2.imread(imgPath)
-    img = cv2.resize(img, dsize = (300, 180))
+    img = cv2.resize(img, dsize = (300, 180), interpolation=cv2.INTER_NEAREST)
     # img = img/256
     return img
 
 def getLabelFromPath(path, extension='jpg'):
     imgPath = path+"\\20."+extension
     img = cv2.imread(imgPath)
-    img = cv2.resize(img, dsize = (300, 180))
+    img = cv2.resize(img, dsize = (300, 180), interpolation=cv2.INTER_NEAREST)
     # cv2.imshow("RGB", img)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     for x in range(img.shape[0]):
@@ -89,6 +89,66 @@ def getLabelFromPath(path, extension='jpg'):
     # cv2.waitKey(0)
     # img = img/256
     return img    
+
+def get_5line(dataPath="D:\\lane_dataset\\"):
+    imageSubpath = "train_set\\clips\\"
+    gtSubpath = "train_set\\seg_label\\"
+
+    image_dir = dataPath + imageSubpath
+    gt_dir = dataPath + gtSubpath
+
+    input_path_list = glob.glob(os.path.join(image_dir, '*'))
+    gt_path_list = glob.glob(os.path.join(gt_dir, '*'))
+
+    input_data_set = []
+    label_data_set = []
+
+    data_set_size = 0
+
+    for path in input_path_list:
+        sub_path_list = glob.glob(path+'\\*')
+        data_set_size += len(sub_path_list)
+
+    idx = 0
+    for path in input_path_list:
+        sub_path_list = glob.glob(path+'\\*')
+        for subPath in sub_path_list:
+            idx = idx + 1
+            if idx % 100 == 0:
+                print("Input Data Set "+str(idx)+"  /  "+str(data_set_size))
+            
+            paths=subPath.split('\\')
+            new_path = os.path.join(gt_dir, paths[-2], paths[-1])
+
+            np_img=getImageFromPath(subPath, extension='jpg')
+            np_ar=getImageFromPath(new_path, extension='png')
+            input_data_set.append(np_img)
+            label_data_set.append(np_ar)
+        
+
+            # if idx>200:
+            #     break
+
+        
+
+    print("INPUT DATASET SIZE = "+str(len(input_data_set)))
+    print("LABEL DATASET SIZE = "+str(len(label_data_set)))
+    # for i in 10:
+    #     cv2.imshow("I IMG", input_data_set[i])
+    #     cv2.imshow("L IMG", label_data_set[i])
+    #     cv2.waitKey(0)
+
+    input_data_set = np.array(input_data_set)
+    label_data_set = np.array(label_data_set)
+
+    print("INPUT DATASET SHAPE = {}".format(input_data_set.shape))
+    print("LABEL DATASET SHAPE = {}".format(label_data_set.shape))
+
+
+    x_train, x_test, y_train, y_test = train_test_split(input_data_set, label_data_set)
+    xy = (x_train, x_test, y_train, y_test)
+    np.save("D:\\\lane_dataset\\img_lane.npy", xy)
+    print(glob.glob(os.path.join(gt_dir, '*')))
 
 def getDatasets(dataPath="D:\\lane_dataset\\"):
    
@@ -147,8 +207,8 @@ def getDatasets(dataPath="D:\\lane_dataset\\"):
     return
 
 if __name__=="__main__":
-    getDatasets()
-    
+    # getDatasets()
+    get_5line()
     # outputPath = "D:\\lane_dataset\\converted_gt"
     # jsonPath = 'D:\\lane_dataset\\train_set'
     # json_string = 'label_data_*.json'

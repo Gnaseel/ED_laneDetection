@@ -81,7 +81,7 @@ class EDeval():
         output_list = []
         for idx in range(len(lane_list)):
             output = dict()
-            output["h_sample"]=[i for i in range(160,720,10)]
+            output["h_samples"]=[i for i in range(160,720,10)]
             output["lanes"] = [lane for lane in lane_list[idx]]
             output["run_time"] = 1
             output["raw_file"]=path_list[idx]

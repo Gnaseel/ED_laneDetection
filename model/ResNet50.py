@@ -1,60 +1,71 @@
 import torch
 import torchvision.models.resnet as resnet
 from model.common.res_block import ResidualBlock
-class ResNet34(torch.nn.Module):
+class ResNet50(torch.nn.Module):
     def __init__(self):
-        super(ResNet34, self).__init__()
+        super(ResNet50, self).__init__()
+        self.maxArg=8
+        self.output_size = [368,640]
         #------------------------------- ENCODER ------------------------------------------
         self.conv7by7 = torch.nn.Sequential(
             torch.nn.Conv2d(3, 64, kernel_size=7, stride = 2, padding = 3),
             torch.nn.BatchNorm2d(64),
-            torch.nn.ReLU(inplace=True),
-            torch.nn.MaxPool2d(kernel_size=3, stride=2)
+            torch.nn.ReLU(),
+            torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
-        self.encoder1=ResidualBlock(64, 64,3)
-        self.encoder2=ResidualBlock(64, 128,4)
-        self.encoder3=ResidualBlock(128, 256,3)
-        self.encoder4=ResidualBlock(256, 512,2)
+
+        self.conv2=self.make_layer(64, 64, 256, 3, True, False)
+        self.conv3=self.make_layer(256, 128, 512, 4, False, False)
+        self.conv4=self.make_layer(512, 256, 1024, 6, False, False)
+        self.conv5=self.make_layer(1024, 512, 2048, 3, False, True)
+        self.avp=torch.nn.AvgPool2d(kernel_size=7, stride=1)
+
 
         self.maxPooling = torch.nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         #------------------------------- DECODER ------------------------------------------
-        # for i in range(3):
-        #     self.encoder.append(ResidualBlock(64, 64))
-        # for i in range(6):
-        #     self.encoder.append(ResidualBlock(128, 128))
-        # for i in range(6):
-        #     self.encoder.append(ResidualBlock(256, 256))
-        # for i in range(3):
-        #     self.encoder.append(ResidualBlock(512, 512))
         self.decoder1 = torch.nn.Sequential(
-            torch.nn.Conv2d(512, 256, kernel_size=1, stride = 1, padding = 0),
-            torch.nn.ConvTranspose2d(256, 256, kernel_size=3, stride=2, padding=0),
+            torch.nn.ConvTranspose2d(2048, 1024, kernel_size=3, stride=2, output_padding=1, padding=1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(1024, 512,  kernel_size=3, stride=1, padding=1),
             torch.nn.ReLU(),
         )
         self.decoder2 = torch.nn.Sequential(
-            torch.nn.Conv2d(256, 128, kernel_size=1, stride = 1, padding = 0),
-            torch.nn.ConvTranspose2d(128, 128, kernel_size=2, stride=2, padding=0),
+            torch.nn.ConvTranspose2d(1024, 512,  kernel_size=3, stride=2, output_padding=1, padding=1),
             torch.nn.ReLU(),
         )
         self.decoder3 = torch.nn.Sequential(
-            torch.nn.ConvTranspose2d(128, 64, kernel_size=2, stride=2, padding=0),
-            torch.nn.ConvTranspose2d(64, 32, kernel_size=2, stride=2, padding=0),
-            torch.nn.ConvTranspose2d(32, 1, kernel_size=2, stride=2, padding=0),
-            torch.nn.Sigmoid(),
+            torch.nn.ConvTranspose2d(512, 256,  kernel_size=3, stride=2, output_padding=1, padding=1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(256, 64,  kernel_size=3, stride=1, padding=1),
+            torch.nn.ReLU(),
+            torch.nn.Conv2d(64, 32,  kernel_size=3, stride=1,  padding=1),
+            torch.nn.Conv2d(32, 32,  kernel_size=3, stride=1,  padding=1),
+            torch.nn.ReLU(),
+            torch.nn.ConvTranspose2d(32, 7,  kernel_size=3, stride=2, output_padding=1, padding=1)
         )
+        
+    def make_layer(self, in_dim, mid_dim, out_dim, repeats, dim_down = True, scale_down=False):
+        layers = []
+        layers.append(ResidualBlock(in_dim, mid_dim, out_dim, dim_down=True,  scale_down=scale_down, bottleNeck = True))
+        for i in range(1, repeats):
+            layers.append(ResidualBlock(out_dim, mid_dim, out_dim, dim_down=False,  scale_down=False, bottleNeck = True))
+        return torch.nn.Sequential(*layers)
 
     def forward(self, x):
-        out = self.conv7by7(x)
-        out = self.encoder1(out)
-        out = self.maxPooling(out)
-        out = self.encoder2(out)
-        out = self.maxPooling(out)
-        out = self.encoder3(out)
-        out = self.maxPooling(out)
-        out = self.encoder4(out)
 
+  
+
+        out = self.conv7by7(x)
+#         print("------------In 2 ----------------")
+        out = self.conv2(out)
+#         print("------------In 3 ----------------")
+        out = self.conv3(out)
+#         print("------------In 4 ----------------")
+        out = self.conv4(out)
+#         print("------------In 5 ----------------")
+        out = self.conv5(out)
         out = self.decoder1(out)
-        out = self.decoder2(out)
+        # out = self.decoder2(out)
         out = self.decoder3(out)
 
         return out

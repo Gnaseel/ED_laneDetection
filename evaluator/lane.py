@@ -2,7 +2,23 @@ import numpy as np
 from sklearn.linear_model import LinearRegression
 import ujson as json
 
+num_of_lane_gt=[0 for i in range(0,10)]
+num_of_lane_pred=[0 for i in range(0,10)]
 
+class Eval_Cfg():
+    def __init__(self):
+        self.eval_list = []
+        return
+    def sort_list(self):
+        self.eval_list.sort(key=lambda data : data.acc)
+        return
+class Eval_data():
+    def __init__(self):
+        self.acc = 0
+        self.pred_lane = 0
+        self.gt_lane = 0
+        self.filePath = ""
+        return
 class LaneEval(object):
     lr = LinearRegression()
     pixel_thresh = 20
@@ -27,7 +43,20 @@ class LaneEval(object):
 
     @staticmethod
     def bench(pred, gt, y_samples, running_time):
+        # print("---")
+        # print(pred[0][10])
+        # if False:
+        # if True:
+        #     for lane in pred:
+        #         for idx in range(len(lane)):
+        #             if lane[idx] != -2:
+        #                 lane[idx] -= 10
+        # print(pred[0][10])
         if any(len(p) != len(y_samples) for p in pred):
+            print("-----------")
+            print(len(y_samples))
+            for p in pred:
+                print(len(p))
             raise Exception('Format of lanes error.')
         if running_time > 200 or len(gt) + 2 < len(pred):
             return 0., 0., 1.
@@ -54,6 +83,7 @@ class LaneEval(object):
 
     @staticmethod
     def bench_one_submit(pred_file, gt_file):
+        cfg = Eval_Cfg()
         try:
             json_pred = [json.loads(line) for line in open(pred_file).readlines()]
         except BaseException as e:
@@ -76,10 +106,23 @@ class LaneEval(object):
                 raise Exception('Some raw_file from your predictions do not exist in the test tasks.')
             gt = gts[raw_file]
             gt_lanes = gt['lanes']
+            # print(gt_lanes)
+            # print(len(gt_lanes))
+            num_of_lane_gt[len(gt_lanes)] +=1
+            num_of_lane_pred[len(pred_lanes)] +=1
+            # return
             y_samples = gt['h_samples']
             try:
+                ed = Eval_data()
                 a, p, n = LaneEval.bench(pred_lanes, gt_lanes, y_samples, run_time)
-                f.write("ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(a,p,n, pred['raw_file']))
+                f.write("LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(gt_lanes), len(pred_lanes), a,p,n, pred['raw_file']))
+
+                ed.acc = a
+                ed.gt_lane = len(gt_lanes)
+                ed.pred_lane = len(pred_lanes)
+                ed.filePath = pred['raw_file']
+                cfg.eval_list.append(ed)
+
 
             except BaseException as e:
                 raise Exception('Format of lanes error.')
@@ -88,16 +131,23 @@ class LaneEval(object):
             fn += n
         num = len(gts)
         # the first return parameter is the default ranking parameter
-        return json.dumps([
+        print(json.dumps([
             {'name': 'Accuracy', 'value': accuracy / num, 'order': 'desc'},
             {'name': 'FP', 'value': fp / num, 'order': 'asc'},
             {'name': 'FN', 'value': fn / num, 'order': 'asc'}
-        ])
+        ]))
+        return cfg
 
 
 if __name__ == '__main__':
     import sys
     print(LaneEval.bench_one_submit(sys.argv[1], sys.argv[2]))
+    print("GT")
+    print(num_of_lane_gt)
+    print(sum(num_of_lane_gt))
+    print("PRED")
+    print(num_of_lane_pred)
+    print(sum(num_of_lane_pred))
     # try:
         # if len(sys.argv) != 3:
         #     raise Exception('Invalid input arguments')

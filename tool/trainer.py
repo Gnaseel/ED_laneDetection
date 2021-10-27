@@ -12,6 +12,7 @@ from torchsummary import summary
 from torch.utils.data import TensorDataset, DataLoader
 import torch.nn.functional as F
 import os
+import torch.nn.functional as nnf
 
 class Trainer():
 
@@ -27,28 +28,47 @@ class Trainer():
         self.loss = 0
         self.logger = Logger()
         self.model = None
-
+        self.device='cpu'
+        self.weight=None
     def train_lane_lin(self):
         # --------------------- Path Setting -------------------------------------------
 
-        self.logger.makeLogDir()
+        
+        self.logger.setLogger(self.device)
+
+        
+        device = self.device
+        print('학습을 진행하는 기기:',device)
+        
 
         # --------------------- Load Dataset -------------------------------------------
         
-        data_loader = self.getDataLoader()
+        data_loader = self.getDataLoader(device)
 
         # --------------------- Train -------------------------------------------
         weights = torch.ones(7)
-        weights[0] = 0.4
-        criterion = torch.nn.NLLLoss(weight=weights, reduction="mean")
+        # weights[0] = 0.4
+        # weights[1] = 3.0
+        # weights[6] = 3.0
+        self.weight = weights
+        self.logger.wanna_log = weights
+        
+        self.logger.makeLogDir()
+        self.logger.writeTrainingHead(self)
+        
+#         weights[0] = 0.4
+#         weights[1] = 5.0
+#         weights[6] = 5.0
+        criterion = torch.nn.NLLLoss(weight=weights, reduction="mean").to(device)
+        
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
-
+        self.model = self.model.to(device)
         self.model.train()
 
-        for epoch in range(70):
+        for epoch in range(70000):
             for index, (data, target) in enumerate(data_loader):
                 optimizer.zero_grad()  # gradient init
-                target2 = self.getTarget(target)
+                target2 = self.getTarget(target.detach())
 
                 #---------------------------- Get Loss ----------------------------------------
                 
@@ -58,8 +78,10 @@ class Trainer():
                 self.loss = loss.item()
                 #---------------------------- Logging ----------------------------------------
                 self.dataUpdate(epoch, index)
-                if index % 10 == 0 or True:
-                    self.logger.logging(self)
+                self.logger.printTrainingLog(self)
+            if epoch % 5 == 0 or True:
+                print("LOG!!")
+                self.logger.logging(self)
 
         print("Train Finished.")
 
@@ -74,59 +96,35 @@ class Trainer():
         target_reTensor = torch.tensor(torch.from_numpy(target_resize).float(), requires_grad=False)        
         return target_reTensor
     
+
+
     def getTarget(self, target):
-        arr = target.detach().numpy()
-        list = []
-        for ins in arr:
-            list2 = []
-            for row in ins:
-                row = np.delete(row, 1, 1)
-                row = np.delete(row, 1, 1)
-                row = np.squeeze(row, 1)
-                list2.append(row)
-            list.append(list2)
-        new_img=np.array(list)
-        target_resize = np.array([])
-        for idx in range(target.shape[0]):
-            app = cv2.resize(new_img[idx], (304,176), interpolation=cv2.INTER_NEAREST)
-            target_resize = np.append(target_resize, app)
-        target_resize = np.reshape(target_resize,(target.shape[0], 176, 304))
-        torch_img = torch.from_numpy(target_resize.astype(np.int64))
-        return torch_img
+        target2 = (target[:,:,:,0:1]).permute(0,3,1,2)
+        target3 = torch.squeeze(nnf.interpolate(target2[:,:,:,:], size=(368, 640), mode='nearest'))
+        return target3
     
     def dataUpdate(self, epoch, index):
         self.epoch = epoch
         self.index = index
         return
 
-    def getDataLoader(self):
+    def getDataLoader(self, device):
 
         x_train, x_test, y_train, y_test  = np.load( self.dataset_path , allow_pickle=True)
-        x_train = torch.from_numpy(x_train).float()
-        x_test = torch.from_numpy(x_test).float()
-        y_train = torch.from_numpy(y_train).float()
-        y_test = torch.from_numpy(y_test).float()
-
+        x_train = torch.from_numpy(x_train).float().to(device)
+#         x_test = torch.from_numpy(x_test).float().to(device)
+        y_train = torch.from_numpy(y_train).float().to(device)
+#         y_test = torch.from_numpy(y_test).float().to(device)
         train_dataset = TensorDataset(x_train.permute(0,3,1,2), y_train)
-        test_dataset = TensorDataset(x_test.permute(0,3,1,2), y_test)
-        data_loader = DataLoader(dataset=train_dataset,batch_size=100,shuffle=True)
+#         test_dataset = TensorDataset(x_test.permute(0,3,1,2), y_test)
+        data_loader = DataLoader(dataset=train_dataset,batch_size=8,shuffle=True)
+        print("BATCH SIZE CHANGFED")
+        
+#         print(x_train.requires_grad)
+#         print(y_train.requires_grad)
         return data_loader
 
-    def getModel(self):
-        if self.cfg.backbone == "VGG16":
-            self.model = myModel()
-            summary(self.model, (3, 180, 300),device='cpu')
-        elif self.cfg.backbone == "VGG16_rf20":
-            self.model = VGG16_rf20()
-            summary(self.model, (3, 180, 300),device='cpu')
-        elif self.cfg.backbone == "ResNet34":
-            self.model = ResNet34()
-            summary(self.model, (3, 176, 304),device='cpu')
-        elif self.cfg.backbone == "ResNet34_lin":
-            self.model = ResNet34_lin()
-            self.dataset_path = "D:\\lane_dataset\\img_lane.npy"
-            summary(self.model, (3, 176, 304),device='cpu')
-        return self.model
+
 
     def train(self):
         # --------------------- Path Setting -------------------------------------------
@@ -135,7 +133,7 @@ class Trainer():
         # --------------------- Load Dataset -------------------------------------------
        
         data_loader = self.getDataLoader()
-        self.getModel()
+#         self.getModel()
 
         # print(self.model)
         # --------------------- Train -------------------------------------------
@@ -160,3 +158,5 @@ class Trainer():
                     self.logger.logging(self)
 
         print("Train Finished.")
+
+
