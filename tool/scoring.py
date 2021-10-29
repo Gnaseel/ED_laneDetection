@@ -85,6 +85,44 @@ class Scoring():
 #         print("SELF LIST")
 #         print(self.lane_list)
         return lane_list
+
+    def getKeypoints(self, img, lane_start, lane_end, lane_step):
+        width = img.shape[1]
+        print("WIDTH!!!!!!!!!!!!!!!!!!!")
+        print(width)
+
+        key_list = []
+        last_key = 0
+        for ordinate in range(lane_start, lane_end+1, lane_step):
+        # for ordinate in range(lane_start, lane_end-50, lane_step):
+
+            # print("ORDINATE {}".format(ordinate))
+            max_value = [-2 for i in range(0,7)]
+            max_idx = [-1 for i in range(0,7)]
+
+            for abscissa in range(0, width):
+                id = img_idx[ordinate][abscissa]
+                if id==0: continue
+                val = img_val[ordinate][abscissa]
+                if val > max_value[id]:
+                    max_value[id] = val
+                    max_idx[id] = abscissa
+            for id in range(1,7):
+                if max_idx[id] is not -1:
+                    lane_list[id].append([ordinate, max_idx[id]])
+                    self.lane_length[id] +=1
+#         print("IN PR")
+        for lane in range(1,7):
+            if self.lane_length[lane] >=2:
+#             if True:
+                self.lanes.append(lane_list[lane])
+#                 print(lane_list[lane])
+#         print("OUT PR")
+                
+#         print("ppppSELF LIST")
+#         print(len(self.lanes))
+            # self.lanes.append(lane_list[lane])
+        return
     def prob2lane(self, img_idx, img_val, lane_start, lane_end, lane_step):
         width = img_idx.shape[1]
 #         print("WIDTH!!!!!!!!!!!!!!!!!!!")

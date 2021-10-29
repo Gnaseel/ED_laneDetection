@@ -8,6 +8,7 @@ from model.VGG16 import myModel
 import matplotlib.pyplot as plt
 from model.VGG16_rf20 import VGG16_rf20
 from model.ResNet34 import ResNet34
+from model.ResNet50 import ResNet50
 from model.ResNet34_lin import ResNet34_lin
 import torch.nn.functional as nnf
 import glob
@@ -121,9 +122,9 @@ class Inference():
                 for idx2, height in enumerate(range(160, 710+1, 10)):
                     # print(lane[idx2])
                     if lane[idx2] > 0:
-                        cls_img = cv2.circle(cls_img, (lane[idx2],height), 30, myColor.color_list[idx])
-                        gt_img = cv2.circle(gt_img, (lane[idx2],height), 30, myColor.color_list[idx])
-                        raw_img = cv2.circle(raw_img, (lane[idx2],height), 30, myColor.color_list[idx])
+                        cls_img = cv2.circle(cls_img, (lane[idx2],height), 15, myColor.color_list[idx])
+                        gt_img = cv2.circle(gt_img, (lane[idx2],height), 15, myColor.color_list[idx])
+                        raw_img = cv2.circle(raw_img, (lane[idx2],height), 15, myColor.color_list[idx])
                     idx2+=1
                 idx+=1
             
