@@ -4,9 +4,10 @@ from back_logic.evaluate import EDeval
 from model.VGG16 import myModel
 from model.VGG16_rf20 import VGG16_rf20
 from model.ResNet34 import ResNet34
-from model.ResNet34_seg import ResNet34_seg
-from model.ResNet50 import ResNet50
 from model.ResNet34_lin import ResNet34_lin
+from model.ResNet34_seg import ResNet34_seg
+from model.ResNet34_delta import ResNet34_delta
+from model.ResNet50 import ResNet50
 from torchsummary import summary
 from torchvision import models
 import os
@@ -33,6 +34,9 @@ class EngineTheRun():
         if self.cfg.backbone=="ResNet34_seg":
             trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
             trainer.train_seg()
+        if self.cfg.backbone=="ResNet34_delta":
+            trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
+            trainer.train_delta()
         elif self.cfg.backbone=="ResNet50":
             trainer.train_lane_lin()
         else:
@@ -45,7 +49,7 @@ class EngineTheRun():
 
         inferencer.model.eval()
         inferencer.device = self.device
-        
+        # inferencer.model.to(self.device)
         
         if self.cfg.showAll:
             inferencer.inference_all()
@@ -136,6 +140,9 @@ class EngineTheRun():
             summary(model, (3, 368, 640),device='cpu')
         elif self.cfg.backbone == "ResNet34_lin":
             model = ResNet34_lin()
+            summary(model, (3, 176, 304),device='cpu')
+        elif self.cfg.backbone == "ResNet34_delta":
+            model = ResNet34_delta()
             summary(model, (3, 176, 304),device='cpu')
         elif self.cfg.backbone == "ResNet50":
             model = ResNet50()

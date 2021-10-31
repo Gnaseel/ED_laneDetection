@@ -15,7 +15,7 @@ class Logger:
 
     def writeTrainingHead(self, trainer):
         f=open(self.log_path+"/train_log.txt",'a')
-        f.write("Model = {}\ndevice =  {}\n".format(trainer.epoch, trainer.device))
+        f.write("Model = {}\ndevice =  {}\n".format(trainer.backbone, trainer.device))
         f.write(str(self.wanna_log)+"\n")
         f.close()
         print()

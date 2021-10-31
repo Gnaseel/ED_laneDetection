@@ -18,7 +18,7 @@ import torch
 import time
 from back_logic.segmentation import EDseg
 from back_logic.evaluate import EDeval
-
+import math
 class Inference():
     def __init__(self, args):
         self.cfg = args
@@ -53,7 +53,13 @@ class Inference():
             self.show_image(img)
         #----------------------- Save Image ---------------------------------------------
         else:
-            self.save_image(output_image)
+            print(self.image_save_path)
+            print(self.image_save_path)
+            print(self.image_save_path)
+            # return
+            # self.save_image(img, output_image,"_seged")
+            self.save_image_delta(img, output_image,"_arrowed")
+            # self.save_image_dir(self.image_save_path)
 
 
     def getSoftMaxImgfromTensor(self, input_tensor):
@@ -61,15 +67,108 @@ class Inference():
         m = torch.nn.Softmax(dim=0)
         cls_soft = torch.max(m(output_tensor[0][:]).detach(), 0)
         return cls_soft
-    def save_image(self, image, fileName):
+    def save_image(self, img, output_image, fileName):
         # --------------------------Save segmented map
-        fir_dir = os.path.join(self.image_save_path,str(fileName)+".jpg")
-        print(fir_dir)
+        back_fir_dir = os.path.join(self.image_save_path,str(fileName)+"_back.jpg")
+        lane_fir_dir = os.path.join(self.image_save_path,str(fileName)+"_lane.jpg")
+        print(output_image.shape)
+        # back = np.squeeze(output_image[0], axis=0)
+        # lane = np.squeeze(output_image[1], axis=0)
+        back = output_image[:,:,0]
+        lane = output_image[:,:,1]
+        print(back.shape)
+        print(lane.shape)
 
+        # print(fir_dir)
+        # return
         # --------------------------Save SegImg ____ 
-        image = cv2.resize(image, (300,180))
-        cv2.imwrite(fir_dir, image)
+        back = cv2.resize(back, (640,368))
+        lane = cv2.resize(lane, (640,368))
+        cv2.imwrite(back_fir_dir, back*50)
+        cv2.imwrite(lane_fir_dir, lane*50)
         return
+    def save_image_delta(self, image, output_image, fileName):
+        # return
+        # --------------------------Save segmented map
+        arrow_fir_dir = os.path.join(self.image_save_path,str(fileName)+"_delta_lane.jpg")
+        raw_fir_dir = os.path.join(self.image_save_path,str(fileName)+"_raw2.jpg")
+        raw_fir_txt_dir = os.path.join(self.image_save_path,str(fileName)+"_raw2.txt")
+        print(image.shape)
+        print(output_image.shape)
+        # back = np.squeeze(image[0], axis=0)
+        # lane = np.squeeze(image[1], axis=0)
+        # back = image[:,:,0]
+        # lane = image[:,:,1]
+        # print(back.shape)
+        # print(lane.shape)
+        print(output_image.shape[0])
+        print(output_image.shape[1])
+        # cv2.imwrite(raw_fir_dir, output_image[:,:,1]*50)
+        # return
+        for i in range(100, output_image.shape[0], 30):
+            idx = 0
+
+            for j in range(10, output_image.shape[1], 50):
+                if j+11 > output_image.shape[1] or j-11 < 0:
+                    continue
+                # startPoint = (i, j)
+                # endPoint = (i, int(j+output_image[i,j]))
+                # endPoint = (j+10, i+10)
+                # print(output_image[i,j])
+                # dx=startPoint[0]-endPoint[0]
+                # dy=startPoint[1]-endPoint[1]
+                # dist = abs(math.sqrt(dx*dx+dy*dy))
+                # output_image[i,j] +=j%output_image.shape[1]
+                if output_image[i,j] < 0:
+                    continue
+                # if dist > 300:
+                #     continue
+                idx +=1
+                # if idx !=20:
+                #     continue
+                print("COORD {} {}".format(j, i))
+                print("PRE  output_image[i,j] {}".format(output_image[i,j]))
+
+                
+                print("POST output_image[i,j] {}".format(output_image[i,j]))
+
+                startPoint = (j, i+idx)
+                
+                direction= -1 if output_image[i,j+3] > output_image[i,j-3] else 1
+
+                endPoint = (int(output_image[i,j])*direction + j, i+idx)
+                print(startPoint)
+                print(endPoint)
+
+                text=str(int(output_image[i,j]*1.5)*direction)
+                org=(50,100) 
+                font=cv2.FONT_HERSHEY_SIMPLEX 
+                # cv2.putText(image,text,startPoint,font,0.3,(255,0,0),2)
+                cv2.circle(image, startPoint, 3, (255,0,0), -1)
+                image = cv2.arrowedLine(image, startPoint, endPoint, (0,0,255), 1)
+
+
+        # print(fir_dir)
+        # return
+        # --------------------------Save SegImg ____ 
+        # back = cv2.resize(back, (640,368))
+        # lane = cv2.resize(lane, (640,368))
+        # cv2.imwrite(back_fir_dir, back*50)
+        cv2.imwrite(arrow_fir_dir, image)
+        output_image = np.squeeze(output_image)
+        cv2.imwrite(raw_fir_dir, output_image)
+        print(output_image)
+        print(output_image.shape)
+        # for i in range(0, output_image.shape[0]):
+        #     for j in range(0, output_image.shape[1]):
+                # output_image[i,j] +=j%output_image.shape[1]
+
+                # if output_image[i,j] < 0:
+                #     output_image[i,j] = 0
+                # else:
+                #     output_image[i,j] = 1
+        np.savetxt(raw_fir_txt_dir, output_image, fmt='%3d')
+
     def save_image_dir(self, filePaths):
         
         print("SAVE IMAGE")
@@ -151,16 +250,16 @@ class Inference():
 
 
         cls_soft = torch.max(m(output_tensor[0][:]).detach(), 0)
-        score = Scoring()
-        score.prob2lane(cls_soft, 40, 150, 5 )
+        # score = Scoring()
+        # score.prob2lane(cls_soft, 40, 150, 5 )
 
         cls_img = cls_soft.indices.detach().numpy().astype(np.uint8)
-        cls_img = cv2.cvtColor(cls_img, cv2.COLOR_GRAY2BGR)
-        for idx, lanes in enumerate(score.lanes):
-            if len(lanes) <=2:
-                continue
-            for node in lanes:
-                cls_img = cv2.circle(cls_img, (node[1],node[0]), 3, myColor.color_list[idx])
+        # cls_img = cv2.cvtColor(cls_img, cv2.COLOR_GRAY2BGR)
+        # for idx, lanes in enumerate(score.lanes):
+        #     if len(lanes) <=2:
+        #         continue
+        #     for node in lanes:
+        #         cls_img = cv2.circle(cls_img, (node[1],node[0]), 3, myColor.color_list[idx])
         cv2.imshow("ori",img)
         img =cv2.resize(img, (1280, 720))
         cls_img = cv2.resize(cls_img, (1280, 720), interpolation=cv2.INTER_NEAREST)
