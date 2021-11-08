@@ -13,11 +13,6 @@ class ResNet34(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
         )
-
-        # self.conv2=self.make_layer(64, 64, 64, 3, True, False)
-        # self.conv3=self.make_layer(64, 64, 128, 4, False, False)
-        # self.conv4=self.make_layer(128, 128, 256, 6, False, False)
-        # self.conv5=self.make_layer(256, 256, 512, 3, False, False)
         self.conv2=self.make_layer(64, 64, 64, 3, True, False)
         self.conv3=self.make_layer(64, 64, 128, 4, False, False)
         self.conv4=self.make_layer(128, 128, 256, 6, False, False)
@@ -54,8 +49,6 @@ class ResNet34(torch.nn.Module):
         return torch.nn.Sequential(*layers)
 
     def forward(self, x):
-
-  
 
         out = self.conv7by7(x)
         out = self.conv2(out)

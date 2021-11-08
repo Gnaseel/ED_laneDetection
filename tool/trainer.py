@@ -4,6 +4,7 @@ from model.ResNet34 import ResNet34
 from model.ResNet50 import ResNet50
 from model.ResNet34_lin import ResNet34_lin
 from tool.logger import Logger
+from back_logic.delta_distance import delta_degree
 from back_logic.delta_distance import delta_distance
 import time
 
@@ -59,8 +60,7 @@ class Trainer():
 
         for epoch in range(70000):
             for index, (data, target) in enumerate(data_loader):
-                print("SDFSDF")
-                print(target.shape)
+                # print(target.shape)
 
                 optimizer.zero_grad()  # gradient init
                 target2 = self.getTarget(target.detach())
@@ -91,7 +91,7 @@ class Trainer():
         data_loader = self.getDataLoader(self.device)
 
         # --------------------- Train -------------------------------------------
-        wt = [1,50]
+        wt = [2,1]
         self.setWeight(wt)
         print("WT = {}".format(wt))
         print("WT = {}".format(self.weight))
@@ -109,7 +109,7 @@ class Trainer():
         for epoch in range(70000):
             for index, (data, target) in enumerate(data_loader):
                 optimizer.zero_grad()  # gradient init
-                print(target.shape)
+                # print(target.shape)
                 target2 = self.getTarget_single(target.detach())
 
                 #---------------------------- Get Loss ----------------------------------------
@@ -129,22 +129,11 @@ class Trainer():
 
         return
     def train_delta(self):
-        # iTensor = torch.LongTensor([i for i in range(7 *6* 5)]).reshape(7, 6, 5)
-        # print("SHAPE:=== ")
-        # print(iTensor.shape)
-        # print(iTensor)
-        # iTensor2 = torch.LongTensor([i%5 for i in range(7 *6* 5)]).reshape(iTensor.shape)
-        # print("SHAPE:=== ")
-        # print(iTensor2.shape)
-        # print(iTensor2)
-        # return
         # --------------------- Path Setting -------------------------------------------
-
         self.logger.setLogger(self.device)
         print('학습을 진행하는 기기:',self.device)
 
         # --------------------- Load Dataset -------------------------------------------
-        
         data_loader = self.getDataLoader(self.device)
 
         # --------------------- Train -------------------------------------------
@@ -169,39 +158,96 @@ class Trainer():
             for index, (data, target) in enumerate(data_loader):
                 # start = time.time()
                 optimizer.zero_grad()  # gradient init
-                # print(target.shape)
                 target2 = self.getTarget_onlyLane(target.detach())
-                batched_width_list, batched_exist_list = d.getDeltaMap(target2)
-                # print(height_list.shape)
+                delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
+                delta_up_list, delta_up_exist_list = d.getDeltaUpMap(target2, delta_height=10)
 
                 #---------------------------- Get Loss ----------------------------------------
-                output=torch.squeeze(self.model(data), dim=1)
-    
-                # print(batched_width_list.shape)
-                # # print(batched_exist_list.shape)
-                # print(output.shape)
-                # print(batched_width_list[0])
-                # print(batched_exist_list[0])
-
+                output = self.model(data)
+               
                 loss = []
                 totalLoss=0
-                for idx, lane_tensor in enumerate(batched_exist_list):
-                    # print("LANE is {}".format(lane))
-                    # print("LANE is {}".format(type(lane)))
-                    # lane_tensor = torch.stack(lane)
-                    selected_output = torch.index_select(output[idx],0, lane_tensor.to(self.device))
-                    selected_target = torch.index_select(batched_width_list[idx],0, lane_tensor.to(self.device))
-                    # print(":OUTPUT")
-                    # print(selected_output)
-                    # print(":TARGET")
-                    # print(selected_target) 
+                for idx, lane_tensor in enumerate(delta_right_exist_list):
+                    selected_output = torch.index_select(output[idx,0],0, lane_tensor.to(self.device))
+                    selected_target = torch.index_select(delta_right_list[idx],0, lane_tensor.to(self.device))
+                    loss.append(criterion(selected_output, selected_target.float()))
+                    totalLoss+=criterion(selected_output, selected_target.float())
+                    
+                for idx, lane_tensor in enumerate(delta_up_exist_list):
+                    selected_output = torch.index_select(output[idx,1],0, lane_tensor.to(self.device))
+                    selected_target = torch.index_select(delta_up_list[idx],0, lane_tensor.to(self.device))
                     loss.append(criterion(selected_output, selected_target.float()))
                     totalLoss+=criterion(selected_output, selected_target.float())
 
+                totalLoss.backward()  # backProp
+                optimizer.step()
+                self.loss = totalLoss.item()
+                #---------------------------- Logging ----------------------------------------
+                self.dataUpdate(epoch, index)
+                self.logger.printTrainingLog(self)
+                # end = time.time()
+                # print("TOTAL {}".format(end-start))
+                # print("ADDED {}".format(end2-start2))
 
-                # print(type(loss[0]))
-                # print(loss[0])
-                # return
+            if epoch % 3 == 0:
+                print("LOG!!")
+                self.logger.logging(self)
+
+        print("Train Finished.")
+
+        return
+    
+    def train_deg(self):
+        # --------------------- Path Setting -------------------------------------------
+        self.logger.setLogger(self.device)
+        print('학습을 진행하는 기기:',self.device)
+        print("Model = train_deg")
+        # --------------------- Load Dataset -------------------------------------------
+        data_loader = self.getDataLoader(self.device)
+
+        # --------------------- Train -------------------------------------------
+        wt = [1]
+        self.setWeight(wt)
+        print("WT = {}".format(wt))
+        print("WT = {}".format(self.weight))
+
+        self.logger.wanna_log = self.weight
+        self.logger.makeLogDir()
+        self.logger.writeTrainingHead(self)
+
+        criterion = torch.nn.L1Loss(reduction="mean").to(self.device)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
+
+        self.model = self.model.to(self.device)
+        self.model.train()
+        d=delta_distance()
+        d.setDevice(self.device)
+
+        for epoch in range(70000):
+            for index, (data, target) in enumerate(data_loader):
+                # start = time.time()
+                optimizer.zero_grad()  # gradient init
+                target2 = self.getTarget_onlyLane(target.detach())
+                delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
+                delta_up_list, delta_up_exist_list = d.getDeltaVerticalMap(target2)
+
+                #---------------------------- Get Loss ----------------------------------------
+                output = self.model(data)
+               
+                loss = []
+                totalLoss=0
+                for idx, lane_tensor in enumerate(delta_right_exist_list):
+                    selected_output = torch.index_select(output[idx,0],0, lane_tensor.to(self.device))
+                    selected_target = torch.index_select(delta_right_list[idx],0, lane_tensor.to(self.device))
+                    loss.append(criterion(selected_output, selected_target.float()))
+                    totalLoss+=criterion(selected_output, selected_target.float())
+                    
+                for idx, lane_tensor in enumerate(delta_up_exist_list):
+                    selected_output = torch.index_select(output[idx,1],1, lane_tensor.to(self.device))
+                    selected_target = torch.index_select(delta_up_list[idx],1, lane_tensor.to(self.device))
+                    loss.append(criterion(selected_output, selected_target.float()))
+                    totalLoss+=criterion(selected_output, selected_target.float())
+
                 totalLoss.backward()  # backProp
                 optimizer.step()
                 self.loss = totalLoss.item()
@@ -230,28 +276,12 @@ class Trainer():
         return target_reTensor
     
     def getTarget_single(self, target):
-        # target2 = (target[:,:,:,0:1]).permute(0,3,1,2)
-        # target3 = torch.squeeze(nnf.interpolate(target2[:,:,:,:], size=(368, 640), mode='nearest'))
-        # target2 = target.permute(2,0,1)
-        # print("Target1 Shape {}".format(target.shape))
         target2 = torch.unsqueeze(target, 1)
-        # print("Target2 Shape {}".format(target2.shape))
-
-        # print("Target2 Shape {}".format(target2.shape))
         target3 = torch.squeeze(nnf.interpolate(target2, size=(368, 640), mode='nearest'))
-        # print("Target3 Shape {}".format(target3.shape))
         return target3
     def getTarget_onlyLane(self, target):
-        # target2 = (target[:,:,:,0:1]).permute(0,3,1,2)
-        # target3 = torch.squeeze(nnf.interpolate(target2[:,:,:,:], size=(368, 640), mode='nearest'))
-        # target2 = target.permute(2,0,1)
-        # print("Target1 Shape {}".format(target.shape))
         target2 = torch.unsqueeze(target, 1)
-        # print("Target2 Shape {}".format(target2.shape))
-
-        # print("Target2 Shape {}".format(target2.shape))
         target3 = torch.squeeze(nnf.interpolate(target2, size=(368, 640), mode='nearest'))
-        print("Target3 Shape {}".format(target3.shape))
         return target3
 
     def getTarget(self, target):
