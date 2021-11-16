@@ -1,8 +1,9 @@
 import torch
+import torchvision.models.resnet as resnet
 from model.common.res_block import ResidualBlock
-class ResNet34_delta(torch.nn.Module):
+class ResNet34(torch.nn.Module):
     def __init__(self):
-        super(ResNet34_delta, self).__init__()
+        super(ResNet34, self).__init__()
         self.maxArg=8
         self.output_size = [368,640]
         #------------------------------- ENCODER ------------------------------------------
@@ -37,7 +38,7 @@ class ResNet34_delta(torch.nn.Module):
             torch.nn.Conv2d(64, 32,  kernel_size=3, stride=1,  padding=1),
             torch.nn.Conv2d(32, 32,  kernel_size=3, stride=1,  padding=1),
             torch.nn.ReLU(),
-            torch.nn.ConvTranspose2d(32, 2,  kernel_size=3, stride=2, output_padding=1, padding=1)
+            torch.nn.ConvTranspose2d(32, 7,  kernel_size=3, stride=2, output_padding=1, padding=1)
         )
         
     def make_layer(self, in_dim, mid_dim, out_dim, repeats, dim_down = True, scale_down=False):

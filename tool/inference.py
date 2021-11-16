@@ -118,7 +118,7 @@ class Inference():
         back_fir_dir = os.path.join(seg_dir_name,str(fileName)+"_back.jpg")
         lane_fir_dir = os.path.join(seg_dir_name,str(fileName)+"_lane.jpg")
 
-        output_image = self.inference_np2np_instance(img)
+        output_image = self.inference_np2np_instance(img, self.model)
 
         print(output_image.shape)
         # back = np.squeeze(output_image[0], axis=0)
@@ -181,7 +181,7 @@ class Inference():
         right_circle_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_right_circle_lane2.jpg")
         raw_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_raw2.jpg")
         raw_fir_txt_dir = os.path.join(delta_dir_name,str(fileName)+"_raw2.txt")
-        output_image = self.inference_np2np_instance(image)
+        output_image = self.inference_np2np_instance(image, self.model)
 
 
         print(output_image.shape)
@@ -292,21 +292,37 @@ class Inference():
         total_circle_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_total_circle.jpg")
 
 
+        heat_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat.jpg")
+        key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat_key.jpg")
+
+
+
         
-        output_image = self.inference_np2np_instance(image)
 
 
-        print(output_image.shape)
-        print(output_image[:,:,0].shape)
+
+        
+        output_image = self.inference_np2np_instance(image, self.model)
+
+
+        # print(output_image.shape)
+        # print(output_image[:,:,0].shape)
+        deg_padding = 3
+        deg_image = np.zeros((image.shape[0]+deg_padding*2,image.shape[1]+deg_padding*2))
+        # print("ZERO SHPAPE {}".format(deg_image.shape))
         output_right_image = np.copy(image)
         output_right_circle_image = np.copy(image)
         output_up_image = np.copy(image)
         output_up_circle_image = np.copy(image)
         output_total_circle_image = np.copy(image)
         output_total_arrow_image = np.copy(image)
+        output_key_image = np.copy(image)
         delta_right_image = output_image[:,:,0]
         delta_up_image = output_image[:,:,1]
 
+
+        output_image2  = self.inference_np2np_instance(image, self.model2)[:,:,1]
+        cv2.imwrite(heat_fir_dir, (output_image2+1)*50)
 
 # i=height, j=width
         for i in range(130, delta_right_image.shape[0], 20):
@@ -340,7 +356,9 @@ class Inference():
 
         delta = 5
         arrow_size=4
-        threshold = 20
+        min_threshold = 5
+        threshold = 35
+        
         for i in range(90, delta_up_image.shape[0]-10, delta):
             idx = 0
             for j in range(10, delta_up_image.shape[1]-10, delta):
@@ -366,7 +384,6 @@ class Inference():
                 a = m
                 b = -1
                 c = y1 - m*x1
-
                 newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
                 newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
 
@@ -374,28 +391,138 @@ class Inference():
                 endpoint_total_arrow = (int(delta_right_image[i,j])*horizone_direction + j, int(delta_up_image[i,j])*vertical_direction + i)
                 endpoint_total_arrow = (int(newx), int(newy))
                 
+                endpoint_temp_arrow = (int(newx-5/(m+0.00001)), int(newy-5))
+                # if int(newy) < image.shape[0] and int(newx) < image.shape[1] and int(newy) > 0 and int(newx) > 0:
+                #     deg_image[int(newy)+deg_padding,int(newx)+deg_padding] = m
+
                 dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_image[i,j]))
 
+                deg = str( (delta_up_image[i,j]*vertical_direction) / (delta_right_image[i,j]*horizone_direction))[0:4]
+                deg = str( (delta_up_image[i,j]*vertical_direction))[0:2] + " / "+str(delta_right_image[i,j]*horizone_direction)[0:2]
+                deg=str(m)[0:5]
 
+
+
+                deg= (math.atan2(y2-y1, x2-x1)*180.0/math.pi)
+                while deg<0:
+                    deg+=180
+                while deg>180:
+                    deg-=180
+                if int(newy) < image.shape[0] and int(newx) < image.shape[1] and int(newy) > 0 and int(newx) > 0:
+                    deg_image[int(newy)+deg_padding,int(newx)+deg_padding] = deg
+                deg=str(deg)[0:5]
                 cv2.circle(output_up_image, startPoint, 1, (255,0,0), -1)
-                if dist > threshold:
+                if dist > threshold or dist < min_threshold:
                     continue
+                
                 if vertical_direction<0:
                     output_up_image = cv2.arrowedLine(output_up_image, startPoint, endpoint_up_arrow, (0,0,255), 1)
                     output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,0,255), arrow_size)
+                    output_right_circle_image= cv2.circle(output_right_circle_image, endpoint_total_arrow, 1, (0,0,255), -1)
+                    output_total_circle_image = cv2.putText(output_total_circle_image,deg,endpoint_total_arrow,cv2.FONT_HERSHEY_SIMPLEX,0.3,(0,0,255),2)
+
                 else:
                     output_up_image = cv2.arrowedLine(output_up_image, startPoint, endpoint_up_arrow, (0,255, 0), 1)
                     output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,255, 0), arrow_size)
+                    output_right_circle_image= cv2.circle(output_right_circle_image, endpoint_total_arrow, 1, (0,255,0), -1)
+                    output_total_circle_image = cv2.putText(output_total_circle_image,deg,endpoint_total_arrow,cv2.FONT_HERSHEY_SIMPLEX,0.3,(0,255,0),2)
+
+
+                # output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,255, 0), arrow_size)
+                # output_total_circle_image= cv2.arrowedLine(output_total_circle_image,endpoint_total_arrow,  endpoint_temp_arrow, (0,255,0), 1)
+        
+        score = Scoring()
+        score.device = self.device
+        # key_tensor = torch.empty(0, dtype=torch.int64).to(self.device)
+        
+        lane_tensor = torch.zeros([10,30,2]).to(self.device)
+
+        first_key_tensor = score.getLocalMaxima_heatmap_re(output_image2, 170).to(self.device)
+
+        terminal_tensor = torch.zeros([10,2], dtype = torch.long).to(self.device)
+        # terminal = 
+
+        lt_idx = 5
+        lane_tensor[0:first_key_tensor.shape[0], lt_idx] = first_key_tensor
+        terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
+        lane_num=first_key_tensor.shape[0]
+
+        print("Terminal = {}".format(terminal_tensor))
+
+
+        #---------------- HEAT to INS ---------------------------------------------------------------
+        for height in range(180, 210, 10):
+
+            new_key =  score.getLocalMaxima_heatmap_re(output_image2, height)
+            print("-----------------------------------------------------------------------------------")
+            print("New Key = {}".format(new_key))
+
+            lane_num = score.chainKey(new_key, terminal_tensor, deg_image, lane_num)
+            lt_idx +=1
+            lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+            print("New Terminal = {}".format(terminal_tensor))
+            print("Lane tensor = {}".format(lane_tensor[0:4,5:12]))
+            # return
+        print("Lane tensor = {}".format(lane_tensor[0:5]))
+
+        # print("--------------IUDUDUDUDUUDUDUD")
+
+        # lt_idx=5
+        # terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
+        # print("New Terminal = {}".format(terminal_tensor))
+        # for height in range(160, 130, -10):
+
+        #     new_key =  score.getLocalMaxima_heatmap_re(output_image2, height)
+        #     print("New Key = {}".format(new_key))
+
+        #     lane_num = score.chainKey(new_key, terminal_tensor, deg_image, lane_num)
+        #     lt_idx -=1
+        #     lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+        #     print("New Terminal = {}".format(terminal_tensor))
+        #     print("Lane tensor = {}".format(lane_tensor[0:3,5:12]))
+        #     # return
+        # print("Lane tensor = {}".format(lane_tensor[0:5]))
+        
+        
+        for idx, lane in enumerate(lane_tensor):
+            # if idx != 2:
+            #     continue
+            for point in lane:
+                output_key_image = cv2.circle(output_key_image, (int(point[1]), int(point[0])), 1, myColor.color_list[idx], -1)
+
+        cv2.imwrite(key_fir_dir, output_key_image)
+        
+        # return
+        # for height in range(330, 60, -10):
+
+        #     seed_ternsor = score.getLocalMaxima_heatmap_re(output_image2, height)
+        #     print("Height = {}, key = {}".format(height, len(seed_ternsor)))
+        #     for point in seed_ternsor:
+        #         output_key_image = cv2.circle(output_key_image, (int(point[1]), int(point[0])), 1, (255,0,0), -1)
+        #         # print("--------------------------------------------")
+        #         for i in range(0,25):
+        #             y = int(point[0])+deg_padding + i%5-2
+        #             x = int(point[1])+deg_padding + i//5-2
+        #             if deg_image[y,x]==0:
+        #                 continue
+        #             # print("DEG = {}".format(deg_image[y,x]))
+
+        #     key_tensor = torch.cat([key_tensor, seed_ternsor]).to(self.device)
+
+        #     print(seed_ternsor)
+        # cv2.imwrite(key_fir_dir, output_key_image)
+        # print("KEY TENSOR")
+        # print(key_tensor)
 #--------------------------------------------------------------------------------------------------------------------------------------
 
-
-        for i in range(130, output_right_circle_image.shape[0]-20, 3):
+        threshold = 40
+        for i in range(130, output_right_circle_image.shape[0]-20, delta):
             idx = 0
-            for j in range(10, output_right_circle_image.shape[1]-10, 5):
+            for j in range(10, output_right_circle_image.shape[1]-10, delta):
                 # if j+11 > delta_right_image.shape[0] or j-11 < 0:
                 #     continue
-                # if delta_right_image[i,j] > delta_threshold:
-                #     continue
+                if delta_right_image[i,j] > threshold:
+                    continue
                 # if i+11 > delta_up_image.shape[1] or i-11 < 0:
                 #     continue
                 # if delta_up_image[i,j] > delta_threshold:
@@ -408,10 +535,10 @@ class Inference():
                 output_right_circle_image = cv2.circle(output_right_circle_image, endPoint, 1, (0,0,255), -1)
 
                 
-                vertical_direction= -1 if delta_up_image[i,j+3] > delta_up_image[i,j-3] else 1
+        #         vertical_direction= -1 if delta_up_image[i,j+3] > delta_up_image[i,j-3] else 1
 
-                endpoint_circle = (int(delta_right_image[i,j])*horizone_direction + j, int(delta_up_image[i,j])*vertical_direction + i)
-                output_total_circle_image= cv2.circle(output_right_circle_image, endpoint_circle, 1, (0,0,255), -1)
+        #         endpoint_circle = (int(delta_right_image[i,j])*horizone_direction + j, int(delta_up_image[i,j])*vertical_direction + i)
+        #         output_total_circle_image= cv2.circle(output_right_circle_image, endpoint_circle, 1, (0,0,255), -1)
 
 
         for i in range(130, output_up_circle_image.shape[0], 3):
@@ -583,10 +710,11 @@ class Inference():
         file_num=0
         file_list=[]
         start_time = time.time()
-        
+        idx=0
         for folder_path in folder_list:       
             sub_folder_list = glob.glob(os.path.join(folder_path, "*"))
             for folder in sub_folder_list:
+                idx+=1
                 filepath = os.path.join(folder,"20.jpg")
                 path_list = filepath.split('/')
                 re_path = os.path.join(*path_list[:])
@@ -612,6 +740,9 @@ class Inference():
 
 
                 print("------------------TEMP")
+                if idx > 5:
+                    return
+                continue
                 return None, None
                 lanelist.append(score.lane_list)
 #                 print("HJIOHIHIHIH")
@@ -664,8 +795,11 @@ class Inference():
         print("Time = {}".format(time.time()-total_time))
         return lanelist, pathlist
     def getScoreInstance_deg(self, input_tensor, path):
+        start_time = time.time()
+        f=open("TIMER.txt",'a')
+        f.write("TIMER START\n\n")
 
-        temp_folder_name = "deldeldel"
+        temp_folder_name = "deg"
         temp_dir_name= os.path.join(self.image_save_path, temp_folder_name)
         os.makedirs(temp_dir_name, exist_ok=True)
         # temp_save_dir = os.path.join(temp_dir_name,"TEMPIMAGE~.jpg")
@@ -678,12 +812,16 @@ class Inference():
         output_tensor_seg = torch.squeeze(self.model2(input_tensor).to(self.device), dim=0)[1]
         output_tensor_delta = torch.squeeze(self.model(input_tensor).to(self.device), dim=0)
         inference_time = time.time()
+        f.write("Inference time = {}\n".format(inference_time-start_time))
     
 #         print("softmax_time time={}".format(softmax_time - inference_time))
         
         score = Scoring()
         score.device = self.device
         seed_ternsor = score.getLocalMaxima_heatmap(output_tensor_seg, 170)
+
+        getSeed_time = time.time()
+        f.write("GetSeed time = {}\n".format(getSeed_time-inference_time))
         print("Seed Tensor {}".format(seed_ternsor))
 
 
@@ -691,6 +829,9 @@ class Inference():
         # REMOVE!!
 
         lane_ternsor = score.getLaneFromsegdeg(output_tensor_seg, output_tensor_delta,seed_ternsor , 170)
+
+        getLane_time = time.time()
+        f.write("GetLane time = {}\n".format(getLane_time-getSeed_time))
 
         print("PATH {}".format(path))
         raw_image = cv2.imread(path)
@@ -703,56 +844,63 @@ class Inference():
         for i in seed_ternsor:
             # cv2.circle(key_image, (int(i.item()*1280/640.0), int(170*720/368.0)), 5, (255,0,0), -1)
             cv2.circle(key_image, (int(i.item()), int(170)), 5, (255,0,0), -1)
-
+        print("LANE TENSOR DEVICE {}".format(lane_ternsor.get_device()))
         print("KEY SHAPE {}".format(lane_ternsor.shape))
-        for idx, point in enumerate(lane_ternsor):
-            cv2.circle(key_image, (int(point[1]), int(point[0])), 2, (0,0,255), -1)
+        for idx, points in enumerate(lane_ternsor):
+
+            for point in points:
+                cv2.circle(key_image, (int(point[1]), int(point[0])), 1, myColor.color_list[idx], -1)
+        cv2.imwrite(os.path.join(temp_dir_name,path_list[-3]+"_"+path_list[-2]+"_key_image.jpg"), key_image) 
+        
+        saveimage_time = time.time()
+        f.write("Save Image time = {}\n".format(saveimage_time- getLane_time))
+        return
             # cv2.circle(key_image, (int(lane_ternsor[1]), int(lane_ternsor[0])), 2, (0,0,255), -1)
         # for idx, points in enumerate(lane_ternsor):
         #     cv2.circle(key_image, (int(lane_ternsor[1]), int(lane_ternsor[0])), 2, (0,0,255), -1)
         #     cv2.circle(key_image, (int(lane_ternsor[1]), int(lane_tern[1][0])), 2, (0,0,255), -1)
             # cv2.circle(key_image, (int(sum_x/count -5), int(linear_model_fn(sum_x/count -5))), 2, (0,0,255), -1)     
-            continue
-            sum_x = 0
-            sum_x_list = []
-            sum_y = 0
-            sum_y_list = []
-            count= 0
-            for height in points:
-                for point in height:
-                    # print(point)
-                    # print("{} {}".format(idx%5, idx//5))
-                    # cv2.circle(key_image, (int(point[1].item()), int(point[0].item()), 2, (0,255,0), -1))
+            # continue
+            # sum_x = 0
+            # sum_x_list = []
+            # sum_y = 0
+            # sum_y_list = []
+            # count= 0
+            # for height in points:
+            #     for point in height:
+            #         # print(point)
+            #         # print("{} {}".format(idx%5, idx//5))
+            #         # cv2.circle(key_image, (int(point[1].item()), int(point[0].item()), 2, (0,255,0), -1))
 
-                    if output_tensor_seg[int(point[0].item()), int(point[1].item())]>2.0:
-                        cv2.circle(key_image, (int(point[1].item()), int(point[0].item())), 2, (0,255,0), -1)
-                        sum_x +=point[1].item()
-                        sum_y +=point[0].item()
-                        count +=1
-                        sum_x_list.append(point[1].item())
-                        sum_y_list.append(point[0].item())
+            #         if output_tensor_seg[int(point[0].item()), int(point[1].item())]>2.0:
+            #             cv2.circle(key_image, (int(point[1].item()), int(point[0].item())), 2, (0,255,0), -1)
+            #             sum_x +=point[1].item()
+            #             sum_y +=point[0].item()
+            #             count +=1
+            #             sum_x_list.append(point[1].item())
+            #             sum_y_list.append(point[0].item())
 
-                    # startPoint = (int(point[1].item()*1280/640.0 - idx%5) , int(point[0].item()*720/368.0-idx//5))
-                    # endPoint = (int(point[1].item()*1280/640.0), int(point[0].item()*720/368.0))
-                    # cv2.arrowedLine(key_image, startPoint, endPoint, (0,0,255), 1)
+            #         # startPoint = (int(point[1].item()*1280/640.0 - idx%5) , int(point[0].item()*720/368.0-idx//5))
+            #         # endPoint = (int(point[1].item()*1280/640.0), int(point[0].item()*720/368.0))
+            #         # cv2.arrowedLine(key_image, startPoint, endPoint, (0,0,255), 1)
 
-            # print("sum_x = {}".format(sum_x/count))
-            # print("sum_y = {}".format(sum_y/count))
-            deg = math.atan2(sum_y/count,sum_x/count)*180/math.pi
-            print("DEG   = {}".format(deg))
+            # # print("sum_x = {}".format(sum_x/count))
+            # # print("sum_y = {}".format(sum_y/count))
+            # deg = math.atan2(sum_y/count,sum_x/count)*180/math.pi
+            # print("DEG   = {}".format(deg))
 
-            linear_model=np.polyfit(sum_x_list,sum_y_list,1)
-            linear_model_fn=np.poly1d(linear_model)
-            print("MODEL {}".format(linear_model_fn))
+            # linear_model=np.polyfit(sum_x_list,sum_y_list,1)
+            # linear_model_fn=np.poly1d(linear_model)
+            # print("MODEL {}".format(linear_model_fn))
 
 
-            x_s=np.arange(0,7)
+            # x_s=np.arange(0,7)
 
-            # cv2.circle(key_image, (int(sum_x/count +5), int(sum_y/count - 5*math.tan(deg/180.0*math.pi))), 2, (0,0,255), -1)
-            # cv2.circle(key_image, (int(sum_x/count -5), int(sum_y/count + 5*math.tan(deg/180.0*math.pi))), 2, (0,0,255), -1)
+            # # cv2.circle(key_image, (int(sum_x/count +5), int(sum_y/count - 5*math.tan(deg/180.0*math.pi))), 2, (0,0,255), -1)
+            # # cv2.circle(key_image, (int(sum_x/count -5), int(sum_y/count + 5*math.tan(deg/180.0*math.pi))), 2, (0,0,255), -1)
 
-            cv2.circle(key_image, (int(sum_x/count +5), int(linear_model_fn(sum_x/count +5))), 2, (0,0,255), -1)
-            cv2.circle(key_image, (int(sum_x/count -5), int(linear_model_fn(sum_x/count -5))), 2, (0,0,255), -1)            
+            # cv2.circle(key_image, (int(sum_x/count +5), int(linear_model_fn(sum_x/count +5))), 2, (0,0,255), -1)
+            # cv2.circle(key_image, (int(sum_x/count -5), int(linear_model_fn(sum_x/count -5))), 2, (0,0,255), -1)            
         # for i in range(130, key_image.shape[0]-20, 10):
         #     idx = 0
         #     for j in range(10, key_image.shape[1]-10, 10):
@@ -764,7 +912,7 @@ class Inference():
         #         cv2.arrowedLine(key_image, startPoint, endPoint, (0,0,255), 1)
 
         
-        cv2.imwrite(os.path.join(temp_dir_name,"key_image.jpg"), key_image) 
+        
 
         # img_idx = cls_soft.indices.to('cpu').numpy()
         # img_val = cls_soft.values.to('cpu').numpy()
@@ -809,9 +957,9 @@ class Inference():
 #         print("getH_time time={}".format(getH_time - seg2lane_time)) 
 #         os.system('clear')
         return score
-    def inference_np2np_instance(self, image):
+    def inference_np2np_instance(self, image, model):
         input_tensor = torch.from_numpy(np.expand_dims(image, axis=0)).permute(0,3,1,2).float().to(self.device)
-        output_tensor = self.model(input_tensor)
+        output_tensor = model(input_tensor)
         print("Tensor {}".format(output_tensor.shape))
         output = output_tensor[0].permute(1,2,0).cpu().detach().numpy()
         return output

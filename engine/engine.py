@@ -53,7 +53,10 @@ class EngineTheRun():
         if self.cfg.backbone=="ResNet34_deg":
             print("SET Model 2")
             inferencer.model2 = ResNet34_seg()
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
+            inferencer.model2.to(self.device)
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
+
             inferencer.model2.eval()
 
         inferencer.model.eval()

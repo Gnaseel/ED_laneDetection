@@ -6,6 +6,7 @@ class Logger:
         self.log_path=""
         self.device_name=""
         self.wanna_log=""
+        self.debuggin_terminal_path=""
         return
     
     def saveTrainingLog(self, trainer):
