@@ -101,12 +101,6 @@ class EDeval():
         file.close()
         # print(output_list[0])
         # print(output_list[1])
-        for i in range(12):
-            print("{} Lane : {}".format(i, lane_checker[i]))
-        for i in range(12):
-            print("{} Lane : {}".format(i, lane_checker[i]))
-        for i in range(12):
-            print("{} Lane : {}".format(i, lane_checker[i]))
-        for i in range(12):
-            print("{} Lane : {}".format(i, lane_checker[i]))
+        # for i in range(12):
+        #     print("{} Lane : {}".format(i, lane_checker[i]))
         return

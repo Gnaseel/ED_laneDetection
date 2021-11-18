@@ -1,4 +1,5 @@
 from builtins import zip
+from genericpath import exists
 from numpy.core.arrayprint import format_float_positional
 import torch
 import cv2
@@ -14,11 +15,10 @@ from model.ResNet34_lin import ResNet34_lin
 import torch.nn.functional as nnf
 import glob
 import os
-import torch.nn.functional as F
-import torch
 import time
 from back_logic.segmentation import EDseg
 from back_logic.evaluate import EDeval
+from back_logic.image_saver import ImgSaver
 import math
 
 class Inference():
@@ -54,6 +54,8 @@ class Inference():
         output_image = None
 
         self.print_inference_option()
+        imgSaver = ImgSaver(self.cfg)
+        imgSaver.device = self.device
         #----------------------- Show Image ---------------------------------------------
         if self.cfg.show:
             self.show_image(img)
@@ -68,7 +70,8 @@ class Inference():
                 self.save_image_delta(img, output_image, "del")
             
             elif self.cfg.backbone=="ResNet34_deg":
-                self.save_image_deg(img, output_image, "del")
+                # self.save_image_deg(img, output_image, "del")
+                imgSaver.save_image_deg(self.model, self.model2, img, output_image, "del")
             
             elif self.cfg.backbone=="ResNet34_seg":
                 self.save_image_seg(img, output_image, "seg")
@@ -134,7 +137,7 @@ class Inference():
         print(lane_cfd_th[0].shape)
         print(lane_cfd_th[1].shape)
         # lane = (lane-3)*50
-        lane = (lane-3)*80
+        lane = (lane+0.5)*100
         back = (back)*20
         # for h,w in zip(lane_cfd_th[0], lane_cfd_th[1]):
         #     cv2.circle(lane, (w,h), 3, (255,0,0), -1)
@@ -145,8 +148,8 @@ class Inference():
         # print(fir_dir)
         # return
         # --------------------------Save SegImg ____ 
-        back = cv2.resize(back, (640,368))
-        lane = cv2.resize(lane, (640,368))
+        # back = cv2.resize(back, (640,368))
+        # lane = cv2.resize(lane, (640,368))
         cv2.imwrite(back_fir_dir, back)
         cv2.imwrite(lane_fir_dir, lane)
 
@@ -192,9 +195,7 @@ class Inference():
         output_up_circle_image = np.copy(image)
         delta_right_image = output_image[:,:,0]
         delta_up_image = output_image[:,:,1]
-
-
-# i=height, j=width
+        # i=height, j=width
         for i in range(130, delta_right_image.shape[0], 20):
             idx = 0
             for j in range(10, delta_right_image.shape[1], 30):
@@ -240,7 +241,7 @@ class Inference():
                 endPoint = (int(delta_up_image[i,j])*direction + j, i-delta_height)
                 cv2.circle(output_up_image, startPoint, 1, (255,0,0), -1)
                 output_up_image = cv2.arrowedLine(output_up_image, startPoint, endPoint, (0,0,255), 1)
-#--------------------------------------------------------------------------------------------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------
 
 
         for i in range(130, output_right_circle_image.shape[0], 3):
@@ -272,10 +273,10 @@ class Inference():
         cv2.imwrite(raw_fir_dir, delta_right_image)
         # print(delta_up_image)
         # print(delta_up_image.shape)
-        np.savetxt(raw_fir_txt_dir, delta_up_image, fmt='%3d')
-        
+        np.savetxt(raw_fir_txt_dir, delta_up_image, fmt='%3d')   
     def save_image_deg(self, image, output_image, fileName, delta_height=10, delta_threshold = 50):
         # return
+       
         # --------------------------Save segmented map
         delta_folder_name = "delta"
         delta_dir_name= os.path.join(self.image_save_path, delta_folder_name)
@@ -294,11 +295,6 @@ class Inference():
 
         heat_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat.jpg")
         key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat_key.jpg")
-
-
-
-        
-
 
 
         
@@ -324,7 +320,7 @@ class Inference():
         output_image2  = self.inference_np2np_instance(image, self.model2)[:,:,1]
         cv2.imwrite(heat_fir_dir, (output_image2+1)*50)
 
-# i=height, j=width
+        # i=height, j=width
         for i in range(130, delta_right_image.shape[0], 20):
             idx = 0
             for j in range(10, delta_right_image.shape[1], 30):
@@ -354,8 +350,8 @@ class Inference():
 
                 output_right_image = cv2.arrowedLine(output_right_image, endPoint, endPoint2, (255,0,0), 1)
 
-        delta = 5
-        arrow_size=4
+        delta = 10
+        arrow_size=1
         min_threshold = 5
         threshold = 35
         
@@ -410,85 +406,99 @@ class Inference():
                     deg-=180
                 if int(newy) < image.shape[0] and int(newx) < image.shape[1] and int(newy) > 0 and int(newx) > 0:
                     deg_image[int(newy)+deg_padding,int(newx)+deg_padding] = deg
-                deg=str(deg)[0:5]
+                # deg=str(deg)[0:5]
                 cv2.circle(output_up_image, startPoint, 1, (255,0,0), -1)
+                output_total_arrow_image = cv2.circle(output_total_arrow_image, startPoint, 1, (255,0,0), -1)
                 if dist > threshold or dist < min_threshold:
                     continue
+                
+                
                 
                 if vertical_direction<0:
                     output_up_image = cv2.arrowedLine(output_up_image, startPoint, endpoint_up_arrow, (0,0,255), 1)
                     output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,0,255), arrow_size)
                     output_right_circle_image= cv2.circle(output_right_circle_image, endpoint_total_arrow, 1, (0,0,255), -1)
-                    output_total_circle_image = cv2.putText(output_total_circle_image,deg,endpoint_total_arrow,cv2.FONT_HERSHEY_SIMPLEX,0.3,(0,0,255),2)
+                    # output_total_circle_image = cv2.putText(output_total_circle_image,deg,endpoint_total_arrow,cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,255),2)
 
                 else:
                     output_up_image = cv2.arrowedLine(output_up_image, startPoint, endpoint_up_arrow, (0,255, 0), 1)
                     output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,255, 0), arrow_size)
                     output_right_circle_image= cv2.circle(output_right_circle_image, endpoint_total_arrow, 1, (0,255,0), -1)
-                    output_total_circle_image = cv2.putText(output_total_circle_image,deg,endpoint_total_arrow,cv2.FONT_HERSHEY_SIMPLEX,0.3,(0,255,0),2)
+                    # output_total_circle_image = cv2.putText(output_total_circle_image,deg,endpoint_total_arrow,cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,255,0),2)
 
-
+                if i>130 and deg<170 and deg > 10:
+                    output_total_circle_image= cv2.arrowedLine(output_total_circle_image,endpoint_total_arrow,  endpoint_temp_arrow, (0,255,0), 1)
                 # output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,255, 0), arrow_size)
-                # output_total_circle_image= cv2.arrowedLine(output_total_circle_image,endpoint_total_arrow,  endpoint_temp_arrow, (0,255,0), 1)
         
         score = Scoring()
-        score.device = self.device
-        # key_tensor = torch.empty(0, dtype=torch.int64).to(self.device)
-        
+        score.device = self.device     
         lane_tensor = torch.zeros([10,30,2]).to(self.device)
+        # print(path)
+        # return
+        key_height =  170
+        first_key_tensor = score.getLocalMaxima_heatmap_re(output_image2, key_height).to(self.device)
+        while first_key_tensor.shape[0]==0 or key_height>300:
+            key_height += 10
+            first_key_tensor = score.getLocalMaxima_heatmap_re(output_image2, key_height).to(self.device)
+        key_height = 170
+        while first_key_tensor.shape[0]==0 or key_height<100:
+            key_height -= 10
+            first_key_tensor = score.getLocalMaxima_heatmap_re(output_image2, key_height).to(self.device)
 
-        first_key_tensor = score.getLocalMaxima_heatmap_re(output_image2, 170).to(self.device)
+        if first_key_tensor.shape[0]==0:
+            score.tensor2lane(lane_tensor)
+            score.getLanebyH_sample(160, 710, 10)
+            return score
 
         terminal_tensor = torch.zeros([10,2], dtype = torch.long).to(self.device)
         # terminal = 
-
-        lt_idx = 5
+        lt_idx = 7
         lane_tensor[0:first_key_tensor.shape[0], lt_idx] = first_key_tensor
         terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
         lane_num=first_key_tensor.shape[0]
 
-        print("Terminal = {}".format(terminal_tensor))
-
-
+        # print("KeyPoint  {}".format(first_key_tensor))
+        # print("Terminal = {}".format(terminal_tensor))
         #---------------- HEAT to INS ---------------------------------------------------------------
-        for height in range(180, 210, 10):
-
+        for height in range(key_height+10, 330, 10):
+            print("Height {}".format(height))
             new_key =  score.getLocalMaxima_heatmap_re(output_image2, height)
-            print("-----------------------------------------------------------------------------------")
-            print("New Key = {}".format(new_key))
-
-            lane_num = score.chainKey(new_key, terminal_tensor, deg_image, lane_num)
+            # print("-----------------------------------------------------------------------------------")
+            # print("New Key = {}".format(new_key))
+            lane_num = score.chainKey2(new_key, terminal_tensor, deg_image, lane_num)
             lt_idx +=1
             lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
-            print("New Terminal = {}".format(terminal_tensor))
-            print("Lane tensor = {}".format(lane_tensor[0:4,5:12]))
+            # print("New Terminal = {}".format(terminal_tensor))
+            # print("Lane tensor = {}".format(lane_tensor[0:4,5:12]))
             # return
-        print("Lane tensor = {}".format(lane_tensor[0:5]))
-
-        # print("--------------IUDUDUDUDUUDUDUD")
-
-        # lt_idx=5
-        # terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
-        # print("New Terminal = {}".format(terminal_tensor))
-        # for height in range(160, 130, -10):
-
-        #     new_key =  score.getLocalMaxima_heatmap_re(output_image2, height)
-        #     print("New Key = {}".format(new_key))
-
-        #     lane_num = score.chainKey(new_key, terminal_tensor, deg_image, lane_num)
-        #     lt_idx -=1
-        #     lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
-        #     print("New Terminal = {}".format(terminal_tensor))
-        #     print("Lane tensor = {}".format(lane_tensor[0:3,5:12]))
-        #     # return
         # print("Lane tensor = {}".format(lane_tensor[0:5]))
-        
-        
+        # print("--------------IUDUDUDUDUUDUDUD")
+        lt_idx=7
+        terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
+        # print("New Terminal = {}".format(terminal_tensor))
+        for height in range(key_height-10, 90, -10):
+            print("Height {}".format(height))
+            new_key =  score.getLocalMaxima_heatmap_re(output_image2, height)
+            # print("New Key = {}".format(new_key))
+            lane_num = score.chainKey2(new_key, terminal_tensor, deg_image, lane_num)
+            lt_idx -=1
+            lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+            # print("New Terminal = {}".format(terminal_tensor))
+            # print("Lane tensor = {}".format(lane_tensor[0:3,5:12]))
+            # return
+        # print("Lane tensor = {}".format(lane_tensor[0:5]))
+        get_pre_lane = time.time()
+        # print("Get Pre lane Time = {}".format(get_pre_lane - get_degMap_output))
+        # lane_tensor[:,0] *= (720.0/368.0)
+        # lane_tensor[:,1] *= (720.0/368.0)
+        score.tensor2lane(lane_tensor)
+        # return
+        score.getLanebyH_sample_deg(160, 710, 10)
         for idx, lane in enumerate(lane_tensor):
             # if idx != 2:
             #     continue
             for point in lane:
-                output_key_image = cv2.circle(output_key_image, (int(point[1]), int(point[0])), 1, myColor.color_list[idx], -1)
+                output_key_image = cv2.circle(output_key_image, (int(point[1]), int(point[0])), 3, myColor.color_list[idx], -1)
 
         cv2.imwrite(key_fir_dir, output_key_image)
         
@@ -513,7 +523,7 @@ class Inference():
         # cv2.imwrite(key_fir_dir, output_key_image)
         # print("KEY TENSOR")
         # print(key_tensor)
-#--------------------------------------------------------------------------------------------------------------------------------------
+        #--------------------------------------------------------------------------------------------------------------------------------------
 
         threshold = 40
         for i in range(130, output_right_circle_image.shape[0]-20, delta):
@@ -566,7 +576,58 @@ class Inference():
         # print(delta_up_image)
         # print(delta_up_image.shape)
         np.savetxt(raw_fir_txt_dir, delta_up_image, fmt='%3d')
+    def save_image_dir_deg(self, filePaths):
+        for file in filePaths:
+            print("PATH : {}".format(file))
+            img = cv2.imread(file)
+            img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
 
+            # print(img.shape)
+            #             input_tensor = torch.from_numpy(np.expand_dims(img, axis=0)).permute(0,3,1,2).float().to(self.device)
+            #             cls_soft = self.getSoftMaxImgfromTensor(input_tensor)
+            #             img_idx = cls_soft.indices.to('cpu').numpy()
+            #             img_val = cls_soft.values.to('cpu').numpy()
+            #             # output_tensor = self.model(input_tensor)
+            #             # m = torch.nn.Softmax(dim=0)
+            #             # cls_soft = torch.max(m(output_tensor[0][:]).detach(), 0)
+            score = self.getScoreInstance_deg(img, file)
+            # score.prob2lane(img_idx, img_val, 40, 350, 5 )
+            # score.getLanebyH_sample(160, 710, 10)
+            path_list = file.split(os.sep)
+            raw_img = cv2.resize(img, dsize = (1280, 720))
+            cls_img = self.inference_np2np_instance(img, self.model2)[:,:,1]
+            cls_img = cv2.resize(cls_img, dsize = (1280, 720))
+            cls_img = (cls_img-0.4)*30
+            gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *path_list[8:-1],"20.png")
+            #             print("GT path = {}".format(gt_path))
+            gt_img = cv2.imread(gt_path)*30
+
+        
+            for idx, lane in enumerate(score.lane_list):
+                if len(lane) <=2:
+                    continue
+                for idx2, height in enumerate(range(160, 710+1, 10)):
+                    if lane[idx2] > 0:
+                        cls_img = cv2.circle(cls_img, (lane[idx2],height), 15, myColor.color_list[idx])
+                        gt_img = cv2.circle(gt_img, (lane[idx2],height), 15, myColor.color_list[idx])
+                        raw_img = cv2.circle(raw_img, (lane[idx2],height), 15, myColor.color_list[idx])
+                    idx2+=1
+                idx+=1
+            
+            
+            fileName = "20_raw"
+            fir_dir = os.path.join(self.image_save_path,path_list[8] + "_" + path_list[9] + "_" + str(fileName)+".jpg")
+            print("Raw Path = {}".format(fir_dir))
+            cv2.imwrite(fir_dir, raw_img)
+            fileName = "20_segmented"
+            fir_dir = os.path.join(self.image_save_path,path_list[8] + "_" + path_list[9] + "_" + str(fileName)+".jpg")
+            print("Seg Path = {}".format(fir_dir))
+            cv2.imwrite(fir_dir, cls_img)
+            gtfileName = "20_ground_truth"
+            fir_dir = os.path.join(self.image_save_path,path_list[8] + "_" + path_list[9] + "_" + str(gtfileName)+".jpg")
+            print("GT Path = {}".format(fir_dir))
+            cv2.imwrite(fir_dir, gt_img)
+        return
     def save_image_dir(self, filePaths):
         
         print("SAVE IMAGE")
@@ -588,36 +649,20 @@ class Inference():
             score.prob2lane(img_idx, img_val, 40, 350, 5 )
             score.getLanebyH_sample(160, 710, 10)
             path_list = file.split(os.sep)
-#             print("path list = {}".format(path_list))
+            #             print("path list = {}".format(path_list))
             cls_img = cls_soft.indices.detach().to('cpu').numpy().astype(np.uint8)
             cls_img = cv2.cvtColor(cls_img, cv2.COLOR_GRAY2BGR)
             cls_img = cv2.resize(cls_img, dsize = (1280, 720), interpolation=cv2.INTER_NEAREST)*30
             raw_img = cv2.resize(img, dsize = (1280, 720), interpolation=cv2.INTER_NEAREST)
             gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *path_list[8:-1],"20.png")
-#             print("GT path = {}".format(gt_path))
+            #             print("GT path = {}".format(gt_path))
             gt_img = cv2.imread(gt_path)*30
 
-            # score = self.getScoreInstance2(img_tensor, file)
-
-
-
-#             gt_img = cv2.cvtColor(gt_img, cv2.COLOR_BGR2GRAY)
-            
-#             print("LEN = {}".format(len(score.lane_list)))
-#             for idx, lane in enumerate(score.lanes):
-#                 print("IDX = {}".format(idx))
-#                 if len(lane) <=2:
-#                     continue
-#                 for idx2, node in enumerate(lane):
-#                     print(node)
         
             for idx, lane in enumerate(score.lane_list):
-#                 print("IDX = {}".format(idx))
-                # print(myColor.color_list[idx])
                 if len(lane) <=2:
                     continue
                 for idx2, height in enumerate(range(160, 710+1, 10)):
-                    # print(lane[idx2])
                     if lane[idx2] > 0:
                         cls_img = cv2.circle(cls_img, (lane[idx2],height), 15, myColor.color_list[idx])
                         gt_img = cv2.circle(gt_img, (lane[idx2],height), 15, myColor.color_list[idx])
@@ -638,7 +683,6 @@ class Inference():
             fir_dir = os.path.join(self.image_save_path,path_list[8] + "_" + path_list[9] + "_" + str(gtfileName)+".jpg")
             print("GT Path = {}".format(fir_dir))
             cv2.imwrite(fir_dir, gt_img)
-            
             
     def show_image(self, img):
 
@@ -700,7 +744,6 @@ class Inference():
         self.print_inference_option()
         start_time = time.time()
         total_time = time.time()
-#         print("Total Inference time = {0:0.3f}".format(end_time-start_time))
         print("Inference_deg")
         lanelist = []
         pathlist = []
@@ -721,31 +764,16 @@ class Inference():
                 pathlist.append(os.path.join(*path_list[-4:]))
                 #----------------------- Get Image ---------------------------------------------
                 
-#                 img = cv2.imread(filepath)
-#                 img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
-#                 img_tensor = torch.from_numpy(img).to(self.device)
-                
-
-#                 img_tensor = torch.unsqueeze(img_tensor, dim=0).permute(0,3,1,2).float()
-#                 score = self.getScoreInstance2(img_tensor, re_path)
-                
-                
                 img = cv2.imread(filepath)
-                img_tensor = torch.from_numpy(img).to(self.device)
-                # img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
-                img_tensor = nnf.interpolate( torch.unsqueeze(img_tensor, dim=0).permute(0,3,1,2), size=(self.model.output_size[0], self.model.output_size[1])).float()
-                # print("Image path {}".format(re_path))
-                # print("Image path22 {}".format(filepath))
-                score = self.getScoreInstance_deg(img_tensor, filepath)
-
-
-                print("------------------TEMP")
-                if idx > 5:
-                    return
-                continue
-                return None, None
+                img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
+                score = self.getScoreInstance_deg(img, filepath)
+                # print("------------------TEMP")
+                # if idx > 50:
+                #     return lanelist, pathlist
+                # continue
+                # return None, None
                 lanelist.append(score.lane_list)
-#                 print("HJIOHIHIHIH")
+# #                 print("HJIOHIHIHIH")
                 if len(lanelist)%100==0:
                     print("Idx {}".format(len(lanelist)))
                     end_time = time.time()
@@ -794,138 +822,168 @@ class Inference():
         print("Inference Finished!")
         print("Time = {}".format(time.time()-total_time))
         return lanelist, pathlist
-    def getScoreInstance_deg(self, input_tensor, path):
+    def getScoreInstance_deg(self, input_image, path):
         start_time = time.time()
-        f=open("TIMER.txt",'a')
-        f.write("TIMER START\n\n")
 
-        temp_folder_name = "deg"
-        temp_dir_name= os.path.join(self.image_save_path, temp_folder_name)
-        os.makedirs(temp_dir_name, exist_ok=True)
-        # temp_save_dir = os.path.join(temp_dir_name,"TEMPIMAGE~.jpg")
+        deg_padding = 3
+        deg_image = np.zeros((input_image.shape[0]+deg_padding*2,input_image.shape[1]+deg_padding*2))
 
+        input_tensor = torch.from_numpy(np.expand_dims(input_image, axis=0)).permute(0,3,1,2).float().to(self.device)
+        output_tensor = self.model(input_tensor)
+        out_delta =output_tensor[0].permute(1,2,0).cpu().detach().numpy()
+        output_tensor = self.model2(input_tensor)
+        out_heat = output_tensor[0].permute(1,2,0)[:,:,1].cpu().detach().numpy()
 
+        delta_right_image = out_delta[:,:,0]
+        delta_up_image = out_delta[:,:,1]
 
-        path_list = path.split('/')
-        start = time.time()
-        output_tensor = self.model(input_tensor).to(self.device)
-        output_tensor_seg = torch.squeeze(self.model2(input_tensor).to(self.device), dim=0)[1]
-        output_tensor_delta = torch.squeeze(self.model(input_tensor).to(self.device), dim=0)
-        inference_time = time.time()
-        f.write("Inference time = {}\n".format(inference_time-start_time))
-    
-#         print("softmax_time time={}".format(softmax_time - inference_time))
-        
+        get_model_output = time.time()
+        # print("Get Model Output Time = {}".format(get_model_output-start_time))
+
+        delta = 5
+        arrow_size=4
+        min_threshold = 5
+        threshold = 35
+
+        for i in range(90, delta_up_image.shape[0]-10, delta):
+            for j in range(10, delta_up_image.shape[1]-10, delta):
+                
+                horizone_direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
+                vertical_direction= -1 if delta_up_image[i+3,j] > delta_up_image[i-3,j] else 1
+                startPoint = (j, i)
+
+                x1 = int(delta_right_image[i,j])*horizone_direction + j
+                y1 = i
+                x2 = j
+                y2 = int(delta_up_image[i,j])*vertical_direction + i
+                m = (y2-y1)/(x2-x1+0.00001)
+                a = m
+                b = -1
+                c = y1 - m*x1
+                newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
+                newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
+
+                dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_image[i,j]))
+
+                deg = str( (delta_up_image[i,j]*vertical_direction) / (delta_right_image[i,j]*horizone_direction))[0:4]
+                deg = str( (delta_up_image[i,j]*vertical_direction))[0:2] + " / "+str(delta_right_image[i,j]*horizone_direction)[0:2]
+                deg=str(m)[0:5]
+
+                deg= (math.atan2(y2-y1, x2-x1)*180.0/math.pi)
+                while deg<0:
+                    deg+=180
+                while deg>180:
+                    deg-=180
+                if int(newy) < input_image.shape[0] and int(newx) < input_image.shape[1] and int(newy) > 0 and int(newx) > 0:
+                    deg_image[int(newy)+deg_padding,int(newx)+deg_padding] = deg
+        get_degMap_output = time.time()
+        # print("Get DegMap Time = {}".format(get_degMap_output-get_model_output))
+        # print("MODEL 2 NAME = {}".format)
         score = Scoring()
-        score.device = self.device
-        seed_ternsor = score.getLocalMaxima_heatmap(output_tensor_seg, 170)
+        score.device = self.device     
+        lane_tensor = torch.zeros([10,30,2]).to(self.device)
+        # print(path)
+        # return
+        key_height =  170
+        first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
+        while first_key_tensor.shape[0]==0 or key_height>300:
+            key_height += 10
+            first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
+        key_height = 170
+        while first_key_tensor.shape[0]==0 or key_height<100:
+            key_height -= 10
+            first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
 
-        getSeed_time = time.time()
-        f.write("GetSeed time = {}\n".format(getSeed_time-inference_time))
-        print("Seed Tensor {}".format(seed_ternsor))
+        if first_key_tensor.shape[0]==0:
+            score.tensor2lane(lane_tensor)
+            score.getLanebyH_sample(160, 710, 10)
+            return score
 
+        terminal_tensor = torch.zeros([10,2], dtype = torch.long).to(self.device)
+        # terminal = 
+        lt_idx = 7
+        lane_tensor[0:first_key_tensor.shape[0], lt_idx] = first_key_tensor
+        terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
+        lane_num=first_key_tensor.shape[0]
 
-        score.refine_deltamap(output_tensor_delta, output_tensor_seg)
-        # REMOVE!!
+        # print("KeyPoint  {}".format(first_key_tensor))
+        # print("Terminal = {}".format(terminal_tensor))
+        #---------------- HEAT to INS ---------------------------------------------------------------
+        for height in range(key_height+10, 330, 10):
+            new_key =  score.getLocalMaxima_heatmap_re(out_heat, height)
+            # print("-----------------------------------------------------------------------------------")
+            # print("New Key = {}".format(new_key))
+            lane_num = score.chainKey2(new_key, terminal_tensor, deg_image, lane_num)
+            lt_idx +=1
+            lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+            # print("New Terminal = {}".format(terminal_tensor))
+            # print("Lane tensor = {}".format(lane_tensor[0:4,5:12]))
+            # return
+        # print("Lane tensor = {}".format(lane_tensor[0:5]))
+        # print("--------------IUDUDUDUDUUDUDUD")
+        lt_idx=7
+        terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
+        # print("New Terminal = {}".format(terminal_tensor))
+        for height in range(key_height-10, 90, -10):
+            new_key =  score.getLocalMaxima_heatmap_re(out_heat, height)
+            # print("New Key = {}".format(new_key))
+            lane_num = score.chainKey2(new_key, terminal_tensor, deg_image, lane_num)
+            lt_idx -=1
+            lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+            # print("New Terminal = {}".format(terminal_tensor))
+            # print("Lane tensor = {}".format(lane_tensor[0:3,5:12]))
+            # return
+        # print("Lane tensor = {}".format(lane_tensor[0:5]))
+        get_pre_lane = time.time()
+        # print("Get Pre lane Time = {}".format(get_pre_lane - get_degMap_output))
+        # lane_tensor[:,0] *= (720.0/368.0)
+        # lane_tensor[:,1] *= (720.0/368.0)
+        score.tensor2lane(lane_tensor)
+        # return
+        score.getLanebyH_sample_deg(160, 710, 10)
+        # score.getLanebyH_sample_deg(160, 710, 10)
+        get_gt_lane = time.time()
+        # print("Get GT lane Time = {}".format(get_gt_lane - get_pre_lane))
 
-        lane_ternsor = score.getLaneFromsegdeg(output_tensor_seg, output_tensor_delta,seed_ternsor , 170)
+        # print(" -------------- N of Lane {}".format(len(score.lane_list)))
+        # for lane in score.lane_list:
+        #     print("        ---- {}".format(len(lane)))
+        # print("SCORE LANE")
+        # for lane in score.lane_list:
+        #     print(lane)
+        #     print("\n")
 
-        getLane_time = time.time()
-        f.write("GetLane time = {}\n".format(getLane_time-getSeed_time))
+        #------------------------------------------------------------------- Save Image ---------------
+        # idx=0
+        # raw_image = np.copy(input_image)
+        # resize_image = np.copy(input_image)
+        # resize_image = cv2.resize(resize_image, (1280, 720))
 
-        print("PATH {}".format(path))
-        raw_image = cv2.imread(path)
-        key_image = cv2.resize(np.copy(raw_image), (640, 368))
-        print(raw_image.shape)
-        cv2.imwrite(os.path.join(temp_dir_name,"raw_image.jpg"), raw_image) 
-        print(output_tensor_seg.shape)
-        cv2.imwrite(os.path.join(temp_dir_name,"seg_image.jpg"), (output_tensor_seg.cpu().detach().numpy()-2)*80) 
+        # # print("LANELIST = {}".format(score.lane_list))
+        # for lane in lane_tensor:
+        #     idx+=1
+        #     for point in lane:
+        #         raw_image = cv2.circle(raw_image, (int(point[1]), int(point[0])), 4, myColor.color_list[idx], -1)
+        # idx=0
+        # for lane in score.lane_list:
+        #     # if idx != 2:
+        #     #     continue
+        #     # print("LANE = {}".format(lane))
+        #     lane_idx = 0
+        #     for height in range(160, 711, 10):
+        #         # print("POINT {}".format(point))
+        #         resize_image = cv2.circle(resize_image, (int(lane[lane_idx]), height), 4, myColor.color_list[idx], -1)
+        #         lane_idx+=1
+        #     idx+=1
+        # os.makedirs(os.path.join(self.image_save_path, "Check_image"), exist_ok=True)
 
-        for i in seed_ternsor:
-            # cv2.circle(key_image, (int(i.item()*1280/640.0), int(170*720/368.0)), 5, (255,0,0), -1)
-            cv2.circle(key_image, (int(i.item()), int(170)), 5, (255,0,0), -1)
-        print("LANE TENSOR DEVICE {}".format(lane_ternsor.get_device()))
-        print("KEY SHAPE {}".format(lane_ternsor.shape))
-        for idx, points in enumerate(lane_ternsor):
+        # score_dir_raw = os.path.join(self.image_save_path, "Check_image",path[-12:-7]+"_data_raw.jpg")
+        # score_dir = os.path.join(self.image_save_path, "Check_image", path[-12:-7]+"_data.jpg")
+        # print(score_dir)
+        # print(score_dir)
 
-            for point in points:
-                cv2.circle(key_image, (int(point[1]), int(point[0])), 1, myColor.color_list[idx], -1)
-        cv2.imwrite(os.path.join(temp_dir_name,path_list[-3]+"_"+path_list[-2]+"_key_image.jpg"), key_image) 
-        
-        saveimage_time = time.time()
-        f.write("Save Image time = {}\n".format(saveimage_time- getLane_time))
-        return
-            # cv2.circle(key_image, (int(lane_ternsor[1]), int(lane_ternsor[0])), 2, (0,0,255), -1)
-        # for idx, points in enumerate(lane_ternsor):
-        #     cv2.circle(key_image, (int(lane_ternsor[1]), int(lane_ternsor[0])), 2, (0,0,255), -1)
-        #     cv2.circle(key_image, (int(lane_ternsor[1]), int(lane_tern[1][0])), 2, (0,0,255), -1)
-            # cv2.circle(key_image, (int(sum_x/count -5), int(linear_model_fn(sum_x/count -5))), 2, (0,0,255), -1)     
-            # continue
-            # sum_x = 0
-            # sum_x_list = []
-            # sum_y = 0
-            # sum_y_list = []
-            # count= 0
-            # for height in points:
-            #     for point in height:
-            #         # print(point)
-            #         # print("{} {}".format(idx%5, idx//5))
-            #         # cv2.circle(key_image, (int(point[1].item()), int(point[0].item()), 2, (0,255,0), -1))
-
-            #         if output_tensor_seg[int(point[0].item()), int(point[1].item())]>2.0:
-            #             cv2.circle(key_image, (int(point[1].item()), int(point[0].item())), 2, (0,255,0), -1)
-            #             sum_x +=point[1].item()
-            #             sum_y +=point[0].item()
-            #             count +=1
-            #             sum_x_list.append(point[1].item())
-            #             sum_y_list.append(point[0].item())
-
-            #         # startPoint = (int(point[1].item()*1280/640.0 - idx%5) , int(point[0].item()*720/368.0-idx//5))
-            #         # endPoint = (int(point[1].item()*1280/640.0), int(point[0].item()*720/368.0))
-            #         # cv2.arrowedLine(key_image, startPoint, endPoint, (0,0,255), 1)
-
-            # # print("sum_x = {}".format(sum_x/count))
-            # # print("sum_y = {}".format(sum_y/count))
-            # deg = math.atan2(sum_y/count,sum_x/count)*180/math.pi
-            # print("DEG   = {}".format(deg))
-
-            # linear_model=np.polyfit(sum_x_list,sum_y_list,1)
-            # linear_model_fn=np.poly1d(linear_model)
-            # print("MODEL {}".format(linear_model_fn))
-
-
-            # x_s=np.arange(0,7)
-
-            # # cv2.circle(key_image, (int(sum_x/count +5), int(sum_y/count - 5*math.tan(deg/180.0*math.pi))), 2, (0,0,255), -1)
-            # # cv2.circle(key_image, (int(sum_x/count -5), int(sum_y/count + 5*math.tan(deg/180.0*math.pi))), 2, (0,0,255), -1)
-
-            # cv2.circle(key_image, (int(sum_x/count +5), int(linear_model_fn(sum_x/count +5))), 2, (0,0,255), -1)
-            # cv2.circle(key_image, (int(sum_x/count -5), int(linear_model_fn(sum_x/count -5))), 2, (0,0,255), -1)            
-        # for i in range(130, key_image.shape[0]-20, 10):
-        #     idx = 0
-        #     for j in range(10, key_image.shape[1]-10, 10):
-        #         if math.sqrt(output_tensor_delta[0][i,j]**2+output_tensor_delta[1][i,j]**2) > 20:
-        #             continue
-        #         startPoint = (j, i)
-        #         endPoint = (int(output_tensor_delta[0][i,j]) + j, int(output_tensor_delta[1][i,j]) +i)
-        #         # key_image = cv2.circle(key_image, endPoint, 1, (0,0,255), -1)
-        #         cv2.arrowedLine(key_image, startPoint, endPoint, (0,0,255), 1)
-
-        
-        
-
-        # img_idx = cls_soft.indices.to('cpu').numpy()
-        # img_val = cls_soft.values.to('cpu').numpy()
-        # score.prob2lane(img_idx, img_val, 40, 365, 5)
-        
-        seg2lane_time = time.time()
-#         print("seg2lane_time time={}".format(seg2lane_time - softmax_time))
-        
-        score.getLanebyH_sample(160, 710, 10)
-#         print("path = {}".format(path))
-        getH_time = time.time()
-#         print("getH_time time={}".format(getH_time - seg2lane_time)) 
-#         os.system('clear')
+        # cv2.imwrite(score_dir_raw, raw_image)
+        # cv2.imwrite(score_dir, resize_image)
         return score
     def getScoreInstance2(self, input_tensor, path):
         
@@ -958,10 +1016,17 @@ class Inference():
 #         os.system('clear')
         return score
     def inference_np2np_instance(self, image, model):
+        # input_tensor = torch.from_numpy(np.expand_dims(image, axis=0)).to(self.device).permute(0,3,1,2).float()
+        input_tensor = torch.unsqueeze(torch.from_numpy(image).to(self.device), dim=0).permute(0,3,1,2).float()
+        output_tensor = model(input_tensor)
+        # print("Tensor {}".format(output_tensor.shape))
+        output = output_tensor[0].permute(1,2,0).cpu().detach().numpy()
+        return output
+    def inference_np2tensor(self, image, model):
         input_tensor = torch.from_numpy(np.expand_dims(image, axis=0)).permute(0,3,1,2).float().to(self.device)
         output_tensor = model(input_tensor)
-        print("Tensor {}".format(output_tensor.shape))
-        output = output_tensor[0].permute(1,2,0).cpu().detach().numpy()
+        # print("Tensor {}".format(output_tensor.shape))
+        output = output_tensor[0].permute(1,2,0)
         return output
     def print_inference_option(self):
         print("------------ Inference Parameter -------------------")

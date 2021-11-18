@@ -96,6 +96,7 @@ class LaneEval(object):
         # print(json_pred)
 
         f = open("Score.txt",'w')
+        lane_num=0
         for pred in json_pred:
             if 'raw_file' not in pred or 'lanes' not in pred or 'run_time' not in pred:
                 raise Exception('raw_file or lanes or run_time not in some predictions.')
@@ -109,9 +110,14 @@ class LaneEval(object):
             # print(gt_lanes)
             # print(len(gt_lanes))
             num_of_lane_gt[len(gt_lanes)] +=1
-            num_of_lane_pred[len(pred_lanes)] +=1
+            pl = len(pred_lanes)
+            if pl>9:
+                pl=9
+            num_of_lane_pred[pl] +=1
             # return
             y_samples = gt['h_samples']
+            # print("Lane Num = {}".format(lane_num))
+            lane_num+=1
             try:
                 ed = Eval_data()
                 a, p, n = LaneEval.bench(pred_lanes, gt_lanes, y_samples, run_time)

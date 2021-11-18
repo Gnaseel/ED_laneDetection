@@ -15,9 +15,7 @@ class Scoring():
         self.device=None
         return
     def getLanebyH_sample(self,  h_start, h_end, h_step):
-
-#         os.system('clear')
-        # print("----------------------------")
+        # os.system('clear')
 #         print("START------------")
         lane_list = []
 #         print(self.lanes)
@@ -31,6 +29,7 @@ class Scoring():
 #             print(lane)
            
         for lane in self.lanes:
+
             new_single_lane=[]
             
             for node in lane:
@@ -38,16 +37,20 @@ class Scoring():
                 node[1] = int(node[1]/640*1280)
             
             
-#             print("LANE DATA ---------------")
-#             print(lane)
+            # print("LANE DATA ---------------")
+            # print(lane)
 
-            cur_height_idx = 0 
+            cur_height_idx = 0
+            lane_ended=False
             
             # end+1 = for height_sample number
             for height in range(h_start, h_end+1, h_step):
-                
-#                 print("Cur Idx = {} / {}".format(cur_height_idx, len(lane)))
+                if lane_ended or cur_height_idx==30:
+                    new_single_lane.append(-2)
+                    continue
+                # print(height)
                 cur_height = lane[cur_height_idx][0]
+                # print("Cur Height = {}".format(cur_height))
                 
                 if height < cur_height and cur_height_idx == 0:
                     new_single_lane.append(-2)
@@ -59,19 +62,34 @@ class Scoring():
                 if cur_height < height:
                     while cur_height < height:
                         cur_height_idx +=1
-#                         print(cur_height_idx)
-#                         print("Cur Idx = {} / {}".format(cur_height_idx, len(lane)))
-#                         print("Height = {} / {}".format(cur_height, height))
                         cur_height = lane[cur_height_idx][0]
                         if cur_height_idx == len(lane)-1:
                             break
 #                             continue
 
                     # print("INDEX = {}".format(cur_height_idx))
-
                 dx = lane[cur_height_idx][1] -lane[cur_height_idx-1][1] 
                 dy = lane[cur_height_idx][0] -lane[cur_height_idx-1][0] 
-    
+                # while False:
+                while True:
+                    
+                    dx = lane[cur_height_idx][1] -lane[cur_height_idx-1][1] 
+                    dy = lane[cur_height_idx][0] -lane[cur_height_idx-1][0] 
+                    cur_height_idx +=1
+                    # print(dy)
+                    if dy!=0:
+                        break
+                    if cur_height_idx==30:
+                        lane_ended=True
+                        break
+                    # print(cur_height_idx)
+                if dy<0 or lane_ended:
+                    new_single_lane.append(-2)
+                    continue
+                
+
+
+                # print(new_single_lane)
                 subY = height - lane[cur_height_idx-1][0] 
                 subX = dx*subY/dy
     
@@ -82,50 +100,155 @@ class Scoring():
 #                 print(len(new_single_lane))
 #                 time.sleep(100000)
 #             print(len(new_single_lane))
+            # print(new_single_lane)
+            lane_list.append(new_single_lane)
+        self.lane_list=lane_list
+#         print("SELF LIST")
+#         print(self.lane_list)
+        return lane_list
+    def getLanebyH_sample_deg(self,  h_start, h_end, h_step):
+
+#         os.system('clear')
+        # print("----------------------------")
+        # print("Get H Sample START------------")
+        lane_list = []
+#         print(self.lanes)
+        for lane in self.lanes:
+            # print("Before {}".format(lane))
+            for node in lane:
+                node[0] = int(node[0]/368*720)
+                node[1] = int(node[1]/640*1280)
+            # print("After {}".format(lane))
+                
+        #     print(lane)
+        # print("-------------------- FINISH")
+        # print(self.lanes)
+
+        # return
+        for lane in self.lanes:
+
+            new_single_lane=[]
+            
+            # for node in lane:
+            #     node[0] = int(node[0]/368*720)
+            #     node[1] = int(node[1]/640*1280)
+            
+            
+
+            cur_height_idx = 0
+            lane_ended=False
+            while True:
+                y = lane[cur_height_idx][0]
+                x = lane[cur_height_idx][1]
+                if x<0 and y < 0:
+                    cur_height_idx+=1
+                    continue
+                else:
+                    break
+            # print("LANE DATA ---------------")
+            # print(lane)
+            
+            # end+1 = for height_sample number
+            for height in range(h_start, h_end+1, h_step):
+                # print(height) # 
+
+                if lane_ended or cur_height_idx==len(lane):
+                    # print("1 X = {}".format(-2))
+                    # print("Lane Ended {}".format(lane_ended))
+                    # print("Lane Idx   {}".format(cur_height_idx))
+                    new_single_lane.append(-2)
+                    continue
+                # print("Cur Height = {}".format(cur_height))
+                cur_height = lane[cur_height_idx][0]
+                # print("Cur Idx = {}".format(cur_height_idx))
+                # print("Cur Height = {}/{}".format(cur_height, height))
+
+                if height < cur_height and cur_height_idx == 0:
+                    new_single_lane.append(-2)
+                    continue
+                if cur_height_idx == len(lane)-1 and height > cur_height:
+                    new_single_lane.append(-2)
+                    continue
+                
+                if cur_height < height:
+                    while cur_height < height:
+                        cur_height_idx +=1
+                        cur_height = lane[cur_height_idx][0]
+                        if cur_height_idx == len(lane)-1:
+                            break
+#                             continue
+
+                    # print("INDEX = {}".format(cur_height_idx))
+                dx = lane[cur_height_idx][1] -lane[cur_height_idx-1][1] 
+                dy = lane[cur_height_idx][0] -lane[cur_height_idx-1][0] 
+                # while False:
+                while True:
+                    # print("IDX {}".format(cur_height_idx))
+                    dx = lane[cur_height_idx][1] -lane[cur_height_idx-1][1] 
+                    dy = lane[cur_height_idx][0] -lane[cur_height_idx-1][0] 
+                    # print(dy)
+                    if dy!=0:
+                        break
+                    cur_height_idx +=1
+                    if cur_height_idx==len(lane):
+                        lane_ended=True
+                        break
+                    # print(cur_height_idx)
+                if dy<0 or lane_ended:
+                    new_single_lane.append(-2)
+                    continue
+                
+
+
+                # print(new_single_lane)
+                subY = height - lane[cur_height_idx-1][0] 
+                subX = dx*subY/dy
+    
+                newX = int(subX + lane[cur_height_idx-1][1])
+                # print("Added  = {}.{}".format(height, newX))
+                new_single_lane.append(newX)                        
+#             if len(new_single_lane)!=55:
+#                 print("SDFSDFSDFSDF!!!!!!!!!!!!!!!!!!!")
+#                 print(len(new_single_lane))
+#                 time.sleep(100000)
+#             print(len(new_single_lane))
+            # print(new_single_lane)
             lane_list.append(new_single_lane)
         self.lane_list=lane_list
 #         print("SELF LIST")
 #         print(self.lane_list)
         return lane_list
 
-#     def getKeypoints(self, img, lane_start, lane_end, lane_step):
-#         width = img.shape[1]
-#         print("WIDTH!!!!!!!!!!!!!!!!!!!")
-#         print(width)
-
-#         key_list = []
-#         last_key = 0
-#         for ordinate in range(lane_start, lane_end+1, lane_step):
-#         # for ordinate in range(lane_start, lane_end-50, lane_step):
-
-#             # print("ORDINATE {}".format(ordinate))
-#             max_value = [-2 for i in range(0,7)]
-#             max_idx = [-1 for i in range(0,7)]
-
-#             for abscissa in range(0, width):
-#                 id = img_idx[ordinate][abscissa]
-#                 if id==0: continue
-#                 val = img_val[ordinate][abscissa]
-#                 if val > max_value[id]:
-#                     max_value[id] = val
-#                     max_idx[id] = abscissa
-#             for id in range(1,7):
-#                 if max_idx[id] is not -1:
-#                     lane_list[id].append([ordinate, max_idx[id]])
-#                     self.lane_length[id] +=1
-# #         print("IN PR")
-#         for lane in range(1,7):
-#             if self.lane_length[lane] >=2:
-# #             if True:
-#                 self.lanes.append(lane_list[lane])
-# #                 print(lane_list[lane])
-# #         print("OUT PR")
-                
-# #         print("ppppSELF LIST")
-# #         print(len(self.lanes))
-#             # self.lanes.append(lane_list[lane])
-#         return
-    def prob2lane(self, img_idx, img_val, lane_start, lane_end, lane_step):
+    def tensor2lane(self, lane_tensor):
+        # lane_tensor[:,:,0]  *= (720.0/368.0)
+        # lane_tensor[:,:,1]  *= (1280.0/640.0)
+        # print("TENSOR 2 LANE------------------------------------")
+        # non_zero_tensor = lane_tensor.tolist()
+        # print("--- FROM ------------------------------------")
+        # print(lane_tensor)
+        # print("--- TO ------------------------------------")
+        for lane in lane_tensor:
+            # print("N of 0 {}".format(torch.count_nonzero(lane)))
+            if torch.count_nonzero(lane) < 6:
+                continue
+            # new_lane = torch.reshape(lane[torch.nonzero(lane, as_tuple=True)], (:,2)).tolist()
+            # new_lane = lane[torch.nonzero(lane, as_tuple=True)]
+            new_lane=lane.tolist()
+            # print(new_lane)
+            # .tolist()
+            new_lane.sort(key=lambda x : x[0])
+            nz_idx = 0
+            for idx, lane in enumerate(new_lane):
+                if lane[0]>0 and lane[1]>0:
+                    nz_idx = idx
+                    break
+            # print("New Lane - {}".format(new_lane[nz_idx:]))
+            self.lanes.append(new_lane[nz_idx:])
+            # print(lane)
+            # print("\n\n")
+        # print(non_zero_tensor)
+        return
+    def prob2lane(self, img_idx, img_val, lane_start, lane_end, lane_step, lane_num=10):
         width = img_idx.shape[1]
 #         print("WIDTH!!!!!!!!!!!!!!!!!!!")
 #         print(width)
@@ -512,7 +635,7 @@ class Scoring():
 
     def getLocalMaxima_heatmap_re(self, img_tensor, height_val = 170):
         # img_tensor = torch.squeeze(img_tensor, dim=0)[1]
-        # print("Image Tensor shape {}".format(img_tensor.shape))
+        # print("--------- Get Local Maxima  {}".format(img_tensor.shape))
 
         # for width_tensor in img_tensor:
         width_tensor = img_tensor[height_val]
@@ -522,102 +645,134 @@ class Scoring():
         last=0
         for abscissa in range(0, width_tensor.shape[0], 5):
             # print(width_tensor[abscissa].item())
-            if  width_tensor[abscissa].item() > -0.5 and (local_maxima.shape[0] ==0 or local_maxima[-1,1] + 25 < abscissa  ):
+            if  width_tensor[abscissa].item() > -0.5 and (local_maxima.shape[0] == 0 or local_maxima[-1,1] + 25 < abscissa  ):
+                # print("Coord {} / {}".format(height_val, abscissa))
+                # print("SHAPE {}   ".format(local_maxima.shape[0]))
+                # if local_maxima.shape[0]!=0:
+                #     print("Last {}".format( local_maxima[-1,1]))
+
                 # print("Idx {} ..... Val {}".format(abscissa, width_tensor[abscissa].item()))
                 local_maxima = torch.cat([local_maxima, torch.tensor([[height_val, abscissa]]).to(self.device)])
                 # print("SHPAE {}".format(local_maxima.shape))
                 # local_maxima = torch.stack([local_maxima, torch.tensor([height_val, abscissa]).to(self.device)])
                 last = abscissa
-            
+        # return
+        # print("LOCAL MAXIMA")
         # print(local_maxima)
         return local_maxima
     
 
-    def chainKey(self, new_key, terminal, degmap, lane_num):
-
+    
+    def chainKey2(self, new_key, terminal, degmap, lane_num):
+        if new_key.shape[0]==0:
+            # print("NO Key--")
+            return lane_num
         score_tensor = torch.zeros(new_key.shape[0], terminal.shape[0]).to(self.device)
         score_tensor -=100
+        new_terminal_tensor = torch.zeros(new_key.shape[0]).to(self.device)
         min_list=[100 for i in new_key]
-        for key_idx, point in enumerate(new_key):
-                # output_key_image = cv2.circle(output_key_image, (int(point[1]), int(point[0])), 1, (255,0,0), -1)
-                # print("--------------------------------------------")
-                print("----------Im {}".format(point))
-                count=0
-                d_sum = 0
-                d_list = []
-                for i in range(0,49):
-                    y = int(point[0]) +1+ i%7
-                    x = int(point[1]) +1+ i//7
-                    d = degmap[y,x]
-                    # if d==0 or d>9990:
-                    if d>170 or d<10:
-                        continue
-                    else:
-                        count+=1
-                        d_sum+=d
-                        print("D = {}".format(d))
-                        d_list.append(d)
-                d_list.sort()
-                # if count > 5:
-                #     d_mean = sum(d_list[len(d_list)//2-1:len(d_list)//2+1]) / 2
-                if count > 3:
-                    d_mean = sum(d_list[len(d_list)//2-1:len(d_list)//2+1]) / 2
-                elif count == 3:
-                    d_mean = d_list[1]
+
+        # print("Terminal {}".format(terminal))
+        # print("New Key {}".format(new_key))
+
+        for ter_idx, t_point in enumerate(terminal):
+            if t_point[0] == 0 and t_point[1] ==0:
+                continue
+            # print("----------Im {}".format(t_point))
+            count=0
+            d_sum = 0
+            d_list = []
+            for i in range(0,49):
+                y = int(t_point[0]) + i%7
+                x = int(t_point[1]) + i//7
+                d = degmap[y,x]
+                # if d==0 or d>9990:
+                if d>170 or d<10:
+                    continue
                 else:
-                    d_mean = d_sum/(count+0.00001)
-                # d_mean = d_sum/(count+0.00001)
-                print(" - D_mean = {}".format(d_mean))
+                    count+=1
+                    d_sum+=d
+                    # print("D = {}".format(d))
+                    d_list.append(d)
+            d_list.sort()
+            # if count > 5:
+            #     d_mean = sum(d_list[len(d_list)//2-1:len(d_list)//2+1]) / 2
+            if count > 3:
+                d_mean = sum(d_list[len(d_list)//2-1:len(d_list)//2+1]) / 2
+            elif count == 3:
+                d_mean = d_list[1]
+            else:
+                d_mean = d_sum/(count+0.00001)
+            # print(" - D_mean = {}".format(d_mean))
+            if d_mean < 5 or d_mean>175:
+                d_mean=90
+            find=False
+            for key_idx, point in enumerate(new_key):
+            # for ter_idx, t_point in enumerate(terminal):
+                if point[0]==0:
+                    continue
+                d_y = point[0] - t_point[0]
+                predicted_d_x = d_y/(math.tan(d_mean/180.0*math.pi)+0.001)
+                predicted_x = predicted_d_x + t_point[1]
+                # print("Target = {}".format(point))
+                # print("Predectetd_Coord  = {} / {}".format(point[0], predicted_x))
+                dist = abs(point[1] - predicted_x)
+                if abs(point[1] - predicted_x) < 30* math.sqrt(abs(d_y/10)):
+                    # print("FIND !!!")
+                    # print("T  = {}".format(point))
+                    # print("PRED = {}".format(t_point))
+                    # print("DIST = {}".format(dist))
+                    if min_list[key_idx] > dist:
+                        score_tensor[key_idx, :] = -100
+                        min_list[key_idx] = dist
+                        score_tensor[key_idx, ter_idx] = -100 + dist
+                        new_terminal_tensor[key_idx]=1
+                        find = True
+            if not find:
+                d_mean = 180-d_mean
+            for key_idx, point in enumerate(new_key):
+            # for ter_idx, t_point in enumerate(terminal):
+                if point[0]==0:
+                    continue
+                d_y = point[0] - t_point[0]
+                predicted_d_x = d_y/(math.tan(d_mean/180.0*math.pi)+0.001)
+                predicted_x = predicted_d_x + t_point[1]
+                # print("Target = {}".format(point))
+                # print("Predectetd_Coord  = {} / {}".format(point[0], predicted_x))
+                dist = abs(point[1] - predicted_x)
+                if abs(point[1] - predicted_x) < 30* math.sqrt(abs(d_y/10)):
+                    # print("FIND !!!")
+                    # print("T  = {}".format(point))
+                    # print("PRED = {}".format(t_point))
+                    # print("DIST = {}".format(dist))
+                    if min_list[key_idx] > dist:
+                        score_tensor[key_idx, :] = -100
+                        min_list[key_idx] = dist
+                        score_tensor[key_idx, ter_idx] = -100 + dist
+                        new_terminal_tensor[key_idx]=1
+                        find = True
+        # if not find:
+        #     print("Key inx = {}".format(key_idx))
+        #     print("lane_num= {}".format(lane_num))
+        #     score_tensor[key_idx, lane_num] += 10
+        #     lane_num+=1
+        for idx, new_terminal in enumerate(new_terminal_tensor):
+            if new_terminal < 1:
+                score_tensor[idx, lane_num] += 10
+                lane_num+=1
 
-                # continue
-                find=False
-                for ter_idx, t_point in enumerate(terminal):
-                    if t_point[0]==0:
-                        continue
-                    d_y = t_point[0] - point[0]
-                    predicted_d_x = d_y/(math.tan(d_mean/180.0*math.pi)+0.001)
-                    predicted_x = predicted_d_x + point[1]
-                    # print("Target = {}".format(t_point))
-                    print("Predectetd_x = {}".format(predicted_x))
-                    dist = abs(t_point[1] - predicted_x)
-                    if abs(t_point[1] - predicted_x) < 20* math.sqrt(abs(d_y/10)):
-                        print("FIND !!!")
-                        print("T  = {}".format(t_point))
-                        print("ME = {}".format(point))
-                        print("DIST = {}".format(dist))
-                        if min_list[key_idx] > dist:
-                            score_tensor[key_idx, :] = -100
-                            min_list[key_idx] = dist
-                            score_tensor[key_idx, ter_idx] = -100 + dist
-                            find = True
 
-                if not find:
-                    print("Key inx = {}".format(key_idx))
-                    print("lane_num= {}".format(lane_num))
-                    score_tensor[key_idx, lane_num] += 10
-                    lane_num+=1
-                    
         max_torch, max_idx_torch = torch.max(score_tensor, dim = 0)
 
         max_torch = max_torch.to(self.device)
         max_idx_torch = max_idx_torch.to(self.device)
         # max_idx_torch = torch.argmax(score_tensor, dim = 1)
-        print("Max torch = {}".format(max_torch))
-        print("max_idx_torch torch = {}".format(max_idx_torch))
-        # print(terminal.get_device())
-        # print(max_torch.get_device())
-        # print(max_idx_torch.get_device())
+        # print("Max torch = {}".format(max_torch))
+        # print("max_idx_torch torch = {}".format(max_idx_torch))
         temp = torch.where(max_torch>-100, max_idx_torch+1,0).to(self.device)
 
-        print("TEMP Ori {}".format(temp))
-        print("TEMP NZ  {}".format(torch.nonzero(temp, as_tuple=True)))
-        # temp = temp[torch.nonzero(temp, as_tuple=True)]-1
-        print("TEMP Sli {}".format(temp))
-        # print("New key {}".format(new_key))
-        # terminalterminal = torch.where(max_torch>-100, max_torch[max_idx_torch],terminal).to(self.device)
-        # terminal[torch.nonzero(temp, as_tuple=True)] = new_key
+        # print("TEMP Ori {}".format(temp))
+        # print("TEMP NZ  {}".format(torch.nonzero(temp, as_tuple=True)))
+        # print("TEMP Sli {}".format(temp))
         terminal[torch.nonzero(temp, as_tuple=True)] = new_key[temp[torch.nonzero(temp, as_tuple=True)]-1]
-        # output = torch.where(input2 > input2_pad, input, input*-1)
-
         return lane_num
-        #Index put requires the source and destination dtypes match, got Float for the destination and Long for the source.

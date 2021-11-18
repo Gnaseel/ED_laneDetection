@@ -87,56 +87,55 @@ class EngineTheRun():
         if self.cfg.backbone=="ResNet34_deg":
             inferencer.model2 = ResNet34_seg()
             inferencer.model2.to(self.device)
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
-            inferencer.inference_dir_deg()
-            # lane_tensor, path_list = inferencer.inference_dir_deg()
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
+
+            # inferencer.inference_dir_deg()
+            lane_tensor, path_list = inferencer.inference_dir_deg()
             print("DEG FINIASHED")
-            return
+            
         else:
             lane_tensor, path_list = inferencer.inference_dir()
-            evaluator = EDeval()
-            evaluator.save_JSON(lane_tensor, path_list)
+        evaluator = EDeval()
+        evaluator.save_JSON(lane_tensor, path_list)
+        bench = LaneEval()
+        eval_cfg = Eval_Cfg()
+        print("BENCH1")
+        eval_cfg = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+        eval_cfg.sort_list()
+        filepaths=[]
+        #--------------------- Save Good Image ---------------
+        idx =0
+        for i in eval_cfg.eval_list:
+            idx+=1
+            # print(i.acc)
+            # print(i.pred_lane)
+            # print(i.gt_lane)
+            # print(i.filePath[5:])
+            filepaths.append(self.cfg.image_path + i.filePath[5:]) #+ "/0531/1492729085263099246/20.jpg")
 
-            bench = LaneEval()
-            eval_cfg = Eval_Cfg()
-            print("BENCH1")
-            eval_cfg = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
-            eval_cfg.sort_list()
+            if idx > 5:
+                break
+        #--------------------- Save Bad Image ---------------
+        idx =0
+        for i in reversed(eval_cfg.eval_list):
+            idx+=1
+            # print(i.acc)
+            # print(i.pred_lane)
+            # print(i.gt_lane)
+            # print(i.filePath[5:])
+            filepaths.append(self.cfg.image_path + i.filePath[5:]) #+ "/0531/1492729085263099246/20.jpg")
 
-            filepaths=[]
-
-            #--------------------- Save Good Image ---------------
-            idx =0
-            for i in eval_cfg.eval_list:
-                idx+=1
-                # print(i.acc)
-                # print(i.pred_lane)
-                # print(i.gt_lane)
-                # print(i.filePath[5:])
-                filepaths.append(self.cfg.image_path + i.filePath[5:]) #+ "/0531/1492729085263099246/20.jpg")
-    
-                if idx > 5:
-                    break
-            #--------------------- Save Bad Image ---------------
-
-            idx =0
-            for i in reversed(eval_cfg.eval_list):
-                idx+=1
-                # print(i.acc)
-                # print(i.pred_lane)
-                # print(i.gt_lane)
-                # print(i.filePath[5:])
-                filepaths.append(self.cfg.image_path + i.filePath[5:]) #+ "/0531/1492729085263099246/20.jpg")
-    
-                if idx > 5:
-                    break
-#             return
-#             filepaths=[]
-#             filepaths.append(self.cfg.image_path + "/0531/1492729085263099246/20.jpg")
-
-            os.makedirs(inferencer.image_save_path, exist_ok=True)
-
-            # print("FILEPATH {}".format(filepaths))
+            if idx > 5:
+                break
+#            return
+#            filepaths=[]
+#            filepaths.append(self.cfg.image_path + "/0531/1492729085263099246/20.jpg")
+        os.makedirs(inferencer.image_save_path, exist_ok=True)
+        # print("FILEPATH {}".format(filepaths))
+        if self.cfg.backbone=="ResNet34_deg":
+            inferencer.save_image_dir_deg(filepaths)
+        else:
             inferencer.save_image_dir(filepaths)
         # print(inferencer.image_save_path)
         
