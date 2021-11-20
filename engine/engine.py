@@ -14,6 +14,8 @@ import os
 from evaluator.lane import LaneEval
 from evaluator.lane import Eval_Cfg
 from evaluator.lane import Eval_data
+from back_logic.image_saver import ImgSaver
+
 import torch
 class EngineTheRun():
     def __init__(self, args):
@@ -56,7 +58,7 @@ class EngineTheRun():
             inferencer.model2.to(self.device)
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
             inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
-
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
             inferencer.model2.eval()
 
         inferencer.model.eval()
@@ -70,25 +72,22 @@ class EngineTheRun():
 
         
     def scoring(self):
-#         print(os.getcwd())
-#         print(os.path.dirname(self.cfg.model_path))
-        
+
         
         inferencer = Inference(self.cfg)
-#         print(inferencer.image_save_path)
-#         return
-        os.makedirs(inferencer.image_save_path, exist_ok=True)
-#         inferencer.image_save_path = os.path.dirname(self.cfg.model_path)
         inferencer.model = self.getModel()
         inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
         inferencer.model.to(self.device)
+        inferencer.model.eval()
         inferencer.device = self.device
+        os.makedirs(inferencer.image_save_path, exist_ok=True)
         
         if self.cfg.backbone=="ResNet34_deg":
             inferencer.model2 = ResNet34_seg()
             inferencer.model2.to(self.device)
+            inferencer.model2.eval()
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
 
             # inferencer.inference_dir_deg()
             lane_tensor, path_list = inferencer.inference_dir_deg()
@@ -96,47 +95,51 @@ class EngineTheRun():
             
         else:
             lane_tensor, path_list = inferencer.inference_dir()
-        evaluator = EDeval()
-        evaluator.save_JSON(lane_tensor, path_list)
-        bench = LaneEval()
-        eval_cfg = Eval_Cfg()
-        print("BENCH1")
-        eval_cfg = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
-        eval_cfg.sort_list()
+
         filepaths=[]
-        #--------------------- Save Good Image ---------------
-        idx =0
-        for i in eval_cfg.eval_list:
-            idx+=1
-            # print(i.acc)
-            # print(i.pred_lane)
-            # print(i.gt_lane)
-            # print(i.filePath[5:])
-            filepaths.append(self.cfg.image_path + i.filePath[5:]) #+ "/0531/1492729085263099246/20.jpg")
+        if len(lane_tensor) > 200:
+            evaluator = EDeval()
+            evaluator.save_JSON(lane_tensor, path_list)
+            bench = LaneEval()
+            eval_cfg = Eval_Cfg()
+            print("BENCH1")
+            eval_cfg = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+            eval_cfg.sort_list()
+            #--------------------- Save Good Image ---------------
+            idx =0
+            for i in eval_cfg.eval_list:
+                idx+=1
+                added_path = self.cfg.image_path + i.filePath[6:]
+                print(added_path)
+                filepaths.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
 
-            if idx > 5:
-                break
-        #--------------------- Save Bad Image ---------------
-        idx =0
-        for i in reversed(eval_cfg.eval_list):
-            idx+=1
-            # print(i.acc)
-            # print(i.pred_lane)
-            # print(i.gt_lane)
-            # print(i.filePath[5:])
-            filepaths.append(self.cfg.image_path + i.filePath[5:]) #+ "/0531/1492729085263099246/20.jpg")
+                if idx > 5:
+                    break
+            #--------------------- Save Bad Image ---------------
+            idx =0
+            for i in reversed(eval_cfg.eval_list):
+                idx+=1
+                added_path = self.cfg.image_path + i.filePath[6:]
+                print(added_path)
+                filepaths.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
 
-            if idx > 5:
-                break
-#            return
-#            filepaths=[]
-#            filepaths.append(self.cfg.image_path + "/0531/1492729085263099246/20.jpg")
-        os.makedirs(inferencer.image_save_path, exist_ok=True)
-        # print("FILEPATH {}".format(filepaths))
-        if self.cfg.backbone=="ResNet34_deg":
-            inferencer.save_image_dir_deg(filepaths)
+                if idx > 5:
+                    break
+            print("File Path = ".format(filepaths))
+
+
         else:
-            inferencer.save_image_dir(filepaths)
+            for path in path_list:
+                filepaths.append(os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path))
+            # filepaths = path_list
+        os.makedirs(inferencer.image_save_path, exist_ok=True)
+        imgSaver = ImgSaver(self.cfg)
+        imgSaver.device = self.device
+        if self.cfg.backbone=="ResNet34_deg":
+            imgSaver.save_image_dir_deg(inferencer.model, inferencer.model2, filepaths)
+        else:
+            imgSaver.save_image_dir(filepaths)
+
         # print(inferencer.image_save_path)
         
         # f = open(inferencer.image_save_path+"/data.txt", 'w')
