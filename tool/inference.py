@@ -15,6 +15,7 @@ from back_logic.segmentation import EDseg
 from back_logic.evaluate import EDeval
 from back_logic.image_saver import ImgSaver
 from back_logic.network_logic import Network_Logic
+from back_logic.postprocess_logic import PostProcess_Logic
 
 class Inference():
     def __init__(self, args):
@@ -26,12 +27,14 @@ class Inference():
         self.gt_path = self.cfg.save_path
         self.model = None
         self.model2 = None
+        self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/test_set"
 
     def inference(self):
 
         #----------------------- Get Image ---------------------------------------------
-
-        img = cv2.imread(self.image_path)
+        # /clips/0530/1492626047222176976_0/20.jpg
+        path = os.path.join(self.dataset_path, self.image_path)
+        img = cv2.imread(path)
         img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
 
         #----------------------- Inference ---------------------------------------------
@@ -41,6 +44,8 @@ class Inference():
         self.print_inference_option()
         nl = Network_Logic()
         nl.device=self.device
+        pl = PostProcess_Logic()
+        pl.device=self.device
         imgSaver = ImgSaver(self.cfg)
         imgSaver.device = self.device
         output_image = nl.inference_np2tensor_instance(img, self.model)
@@ -53,13 +58,18 @@ class Inference():
                 self.save_image_softmax(img, output_image,"_arrowed")
 
             elif self.cfg.backbone=="ResNet34_delta":
-                self.save_image_delta(img, output_image, "del")
+                imgSaver.save_image_delta(img, output_image, "del")
             
             elif self.cfg.backbone=="ResNet34_deg":
+                # out = delta tensor, out2 = heat tensor
                 output_image2 = nl.inference_np2tensor_instance(img, self.model2)
-                imgSaver.save_image_deg(img, output_image2, output_image, "del")
-                imgSaver.save_image_deg_basic(img, output_image, "del")
-                imgSaver.save_image_deg_total(img, output_image, "del")
+                score = Scoring()
+                score.device = self.device     
+                score = nl.getScoreInstance_deg("temp_path", output_image2, output_image.cpu().detach().numpy())
+                score.lane_list = pl.post_process(score.lane_list)
+                imgSaver.save_image_deg(img, output_image2, score, self.image_path, "del")  # heat, lane, GT
+                imgSaver.save_image_deg_basic(img, output_image, "del")                     # circle, arrow, raw delta_map, delta_key
+                imgSaver.save_image_deg_total(img, output_image, "del")                     # total arrow
             
             elif self.cfg.backbone=="ResNet34_seg":
                 imgSaver.save_image_seg(self.model, img, output_image, "seg")
@@ -122,8 +132,13 @@ class Inference():
         return 
 
     def inference_dir_deg(self):
+        start_idx=0
+        end_idx=3000
+        # start_idx=50
+        # end_idx=60
+        print_time_mode = False
+        print_time_mode = True
         self.print_inference_option()
-        # start_time = time.time()
         total_time = time.time()
         print("Inference_deg")
         lanelist = []
@@ -135,12 +150,18 @@ class Inference():
         file_list=[]
         # start_time = time.time()
         idx=0
+        pl = PostProcess_Logic()
+        pl.device = self.device
         for folder_path in folder_list:       
             sub_folder_list = glob.glob(os.path.join(folder_path, "*"))
             for folder in sub_folder_list:
+                idx+=1
+                if idx<start_idx:
+                    continue
+                if idx > end_idx:
+                    return lanelist, pathlist
                 start_time = time.time()
 
-                idx+=1
                 filepath = os.path.join(folder,"20.jpg")
                 path_list = filepath.split('/')
                 re_path = os.path.join(*path_list[:])
@@ -161,22 +182,29 @@ class Inference():
                 out_heat = output_tensor[0].permute(1,2,0)
                 
                 getNetwokr_output_time = time.time()
-                # print("Get Network Output time {}".format(getNetwokr_output_time-input_time))
+
 
                 score = nl.getScoreInstance_deg(filepath, out_heat, out_delta)
                 lane_output_time = time.time()
-                # print("Get Lane Model time {}".format(lane_output_time-getNetwokr_output_time))
-                # print("    Total time {}".format(lane_output_time-input_time))
+
+                score.lane_list = pl.post_process(score.lane_list)
+                postprocess_output_time = time.time()
+
+                if print_time_mode:
+                    print("Get Network Output time {}".format(getNetwokr_output_time-input_time))
+                    print("Get Lane Model time {}".format(lane_output_time-getNetwokr_output_time))
+                    print("Post Process time {}".format(postprocess_output_time-lane_output_time))
+                    print("Total time {}".format(postprocess_output_time-input_time))
                 # print("")
 
                 # score = self.getScoreInstance_deg(img, filepath)
                 # print("------------------TEMP")
-                # if idx > 200:
-                #     return lanelist, pathlist
+
+
                 # continue
                 # return None, None
                 lanelist.append(score.lane_list)
-                if len(lanelist)%100==0:
+                if len(lanelist)%100==0 or True:
                     print("Idx {}".format(len(lanelist)))
                     end_time = time.time()
                     print(end_time-start_time)

@@ -81,6 +81,50 @@ class LaneEval(object):
             s -= min(line_accs)
         return s / max(min(4.0, len(gt)), 1.), fp / len(pred) if len(pred) > 0 else 0., fn / max(min(len(gt), 4.) , 1.)
 
+    
+    @staticmethod
+    def bench_one_instance(pred_lanes, path, gt_file):
+        json_gt = [json.loads(line) for line in open(gt_file).readlines()]
+        gts = {l['raw_file']: l for l in json_gt}
+        accuracy, fp, fn = 0., 0., 0.
+        # print(json_pred)
+
+
+        raw_file = path
+        # pred_lanes = pred['lanes']
+        run_time = 1
+
+        if raw_file not in gts:
+            raise Exception('Some raw_file from your predictions do not exist in the test tasks.')
+        gt = gts[raw_file]
+        gt_lanes = gt['lanes']
+        # print("----------------- GT LANES ------------")
+        # for l  in gt_lanes:
+        #     print(l)
+        # print("----------------- Predict LANES ------------")
+        # for l  in pred_lanes:
+        #     print(l)
+
+        f = open("Score.txt",'w')
+        lane_num=0
+        y_samples = gt['h_samples']
+
+        ed = Eval_data()
+        a, p, n = LaneEval.bench(pred_lanes, gt_lanes, y_samples, run_time)
+        # f.write("LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(gt_lanes), len(pred_lanes), a,p,n, path))
+        print("LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(pred_lanes), len(gt_lanes), a,p,n, path))
+        
+        ed.acc = a
+        ed.gt_lane = len(gt_lanes)
+        ed.pred_lane = len(pred_lanes)
+
+        accuracy += a
+        fp += p
+        fn += n
+        num = len(gts)
+
+        return a, p, n
+
     @staticmethod
     def bench_one_submit(pred_file, gt_file):
         cfg = Eval_Cfg()
@@ -121,7 +165,7 @@ class LaneEval(object):
             try:
                 ed = Eval_data()
                 a, p, n = LaneEval.bench(pred_lanes, gt_lanes, y_samples, run_time)
-                f.write("LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(gt_lanes), len(pred_lanes), a,p,n, pred['raw_file']))
+                f.write("LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(pred_lanes), len(gt_lanes), a,p,n, pred['raw_file']))
 
                 ed.acc = a
                 ed.gt_lane = len(gt_lanes)

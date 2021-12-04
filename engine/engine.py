@@ -52,16 +52,16 @@ class EngineTheRun():
         inferencer = Inference(self.cfg)
         inferencer.model = self.getModel().to(self.device)
         inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
+        inferencer.model.eval()
         if self.cfg.backbone=="ResNet34_deg":
             print("SET Model 2")
             inferencer.model2 = ResNet34_seg()
             inferencer.model2.to(self.device)
+            inferencer.model2.eval()
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
             inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
-            inferencer.model2.eval()
 
-        inferencer.model.eval()
         inferencer.device = self.device
         # inferencer.model.to(self.device)
         
@@ -95,10 +95,16 @@ class EngineTheRun():
             
         else:
             lane_tensor, path_list = inferencer.inference_dir()
-
+        
+        
+        imgSaver = ImgSaver(self.cfg)
+        imgSaver.device = self.device
         filepaths=[]
-        if len(lane_tensor) > 200:
+        if len(lane_tensor) > 2700:
             evaluator = EDeval()
+            for idx, lane in enumerate(lane_tensor):
+                if len(lane)>5:
+                    lane_tensor[idx] = lane[0:5]
             evaluator.save_JSON(lane_tensor, path_list)
             bench = LaneEval()
             eval_cfg = Eval_Cfg()
@@ -107,44 +113,56 @@ class EngineTheRun():
             eval_cfg.sort_list()
             #--------------------- Save Good Image ---------------
             idx =0
+            save_image_num=20
             for i in eval_cfg.eval_list:
                 idx+=1
-                added_path = self.cfg.image_path + i.filePath[6:]
-                print(added_path)
+                added_path = os.path.join(self.cfg.image_path, *i.filePath.split(os.sep)[1:])
                 filepaths.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
-
-                if idx > 5:
+# /home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/test_set/clips/0601/1495058651589498298/20.jpg
+                if idx > save_image_num:
                     break
             #--------------------- Save Bad Image ---------------
             idx =0
             for i in reversed(eval_cfg.eval_list):
                 idx+=1
-                added_path = self.cfg.image_path + i.filePath[6:]
-                print(added_path)
+                added_path = os.path.join(self.cfg.image_path, *i.filePath.split(os.sep)[1:])
                 filepaths.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
 
-                if idx > 5:
+                if idx > save_image_num:
                     break
-            print("File Path = ".format(filepaths))
-
-
+            if self.cfg.backbone=="ResNet34_deg":
+                imgSaver.save_image_dir_deg(inferencer.model, inferencer.model2, filepaths, save_image_num)
+            else:
+                imgSaver.save_image_dir(filepaths)
         else:
+            evaluator = EDeval()
+            # evaluator.save_JSON(lane_tensor, path_list)
+            bench = LaneEval()
+            eval_cfg = Eval_Cfg()
+            print("BENCH1")
+            acc, fp, fn = 0,0,0
+            for lane, path in zip(lane_tensor, path_list):
+                # print("LANE {}".format(type(lane)))
+                # print("LANE {}".format(lane))
+                # print("PATH {}".format(path))
+                if len(lane)>5:
+                    lane = lane[0:5]
+                a, p, n = bench.bench_one_instance(lane, path,"./evaluator/gt.json")
+            
+                acc += a
+                fp += p
+                fn += n
+                print("{} {} {}".format(a, p, n))
+            acc /=len(lane_tensor)
+            fp /=len(lane_tensor)
+            fn /=len(lane_tensor)
+            print("LANE : {} ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}".format(len(lane_tensor), acc,fp,fn))
+
+            # eval_cfg.sort_list()
+
             for path in path_list:
                 filepaths.append(os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path))
-            # filepaths = path_list
-        os.makedirs(inferencer.image_save_path, exist_ok=True)
-        imgSaver = ImgSaver(self.cfg)
-        imgSaver.device = self.device
-        if self.cfg.backbone=="ResNet34_deg":
             imgSaver.save_image_dir_deg(inferencer.model, inferencer.model2, filepaths)
-        else:
-            imgSaver.save_image_dir(filepaths)
-
-        # print(inferencer.image_save_path)
-        
-        # f = open(inferencer.image_save_path+"/data.txt", 'w')
-        # f.write()
-
         return
     def getModel(self):
         model = None

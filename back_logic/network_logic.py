@@ -138,13 +138,16 @@ class Network_Logic:
             # input_tensor = torch.from_numpy(np.expand_dims(image, axis=0)).to(self.device).permute(0,3,1,2).float()
             input_tensor = torch.unsqueeze(torch.from_numpy(image).to(self.device), dim=0).permute(0,3,1,2).float()
             output_tensor = model(input_tensor)
-            # print("Tensor {}".format(output_tensor.shape))
+            # print("Tensor {}".format(output_tensor.get_device()))
+            # print("Tensor {}".format(input_tensor.get_device()))
             output = output_tensor[0].permute(1,2,0)
             return output
 
     def getScoreInstance_deg(self, path, out_heat, out_delta):
-        height_delta=15
-        terminal_size = 30
+        print_mode = False
+        # print("PATH {}".format(path))
+        height_delta=7
+        terminal_size = 50
         start_time = time.time()
         out_heat = out_heat[:,:,1]
         deg_padding = 3
@@ -159,7 +162,6 @@ class Network_Logic:
 
         # get_model_output = time.time()
         get_degMap_output = time.time()
-        # print("Get DegMap Time = {}".format(get_degMap_output-start_time))
 
         score = Scoring()
         score.device = self.device     
@@ -167,65 +169,89 @@ class Network_Logic:
         # print(path)
         # return
         key_height =  170
-        first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
-        while first_key_tensor.shape[0]==0 or key_height>300:
+        # first_key_tensor = self.getLocalMaxima_heatmap(delta_right_image, key_height, threshold = 1.5,reverse=True).to(self.device)
+        first_key_tensor = self.getLocalMaxima_heatmap(out_heat, key_height, reverse=False).to(self.device)
+        # first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
+        while first_key_tensor.shape[0]==0 and key_height<300:
             key_height += 10
+            # first_key_tensor = self.getLocalMaxima_heatmap(delta_right_image, key_height, threshold = 1.5,reverse=True).to(self.device)
+            # first_key_tensor = self.getLocalMaxima_heatmap(out_heat, key_height, reverse=False).to(self.device)
             first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
         key_height = 170
-        while first_key_tensor.shape[0]==0 or key_height<100:
+        while first_key_tensor.shape[0]==0 and key_height>100:
             key_height -= 10
+            # first_key_tensor = self.getLocalMaxima_heatmap(delta_right_image, key_height, threshold = 1.5,reverse=True).to(self.device)
+            # first_key_tensor = self.getLocalMaxima_heatmap(out_heat, key_height, reverse=False).to(self.device)
             first_key_tensor = score.getLocalMaxima_heatmap_re(out_heat, key_height).to(self.device)
+
+        # print("Key height {}".format(key_height))
 
         if first_key_tensor.shape[0]==0:
             score.tensor2lane(lane_tensor)
             score.getLanebyH_sample(160, 710, 10)
             return score
 
-        terminal_tensor = torch.zeros([terminal_size,2], dtype = torch.long).to(self.device)
-        terminal_deg_tensor = torch.zeros([terminal_size], dtype = torch.long).to(self.device)
+        terminal_tensor = torch.zeros([terminal_size,2], dtype = torch.long)
+        # terminal_tensor = torch.zeros([terminal_size,2], dtype = torch.long).to(self.device)
+        terminal_deg_tensor = torch.zeros([terminal_size], dtype = torch.long)
+        # terminal_deg_tensor = torch.zeros([terminal_size], dtype = torch.long).to(self.device)
 
         # getKey_time = time.time()
         # print("Get Key Time = {}".format(getKey_time-get_degMap_output))
 
 
         # terminal = 
-        lt_idx = 7
+        lt_idx = 25
         lane_tensor[0:first_key_tensor.shape[0], lt_idx] = first_key_tensor
         terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
         lane_num=first_key_tensor.shape[0]
 
         # print("KeyPoint  {}".format(first_key_tensor))
         # print("Terminal = {}".format(terminal_tensor))
+
         #---------------- HEAT to INS ---------------------------------------------------------------
-        for height in range(key_height+10, 330, height_delta):
-            new_key =  score.getLocalMaxima_heatmap_re(out_heat, height)
+        for height in range(key_height+10, 350, height_delta):
+            # t1 = time.time()
+            
+            new_key = self.getLocalMaxima_deltamap(delta_right_image, height)
+            # new_key = self.getLocalMaxima_heatmap(out_heat, height, reverse=False)
+            # new_key =  score.getLocalMaxima_heatmap_re(out_heat, height)
+            # t2 = time.time()
             # print("-----------------------------------------------------------------------------------")
             # print("New Key = {}".format(new_key))
             lane_num, terminal_deg_tensor = score.chainKey2(new_key, terminal_tensor, terminal_deg_tensor, deg_image, lane_num)
+            # t3 = time.time()
             lt_idx +=1
-            lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+            lane_tensor[:,lt_idx] = terminal_tensor
+            # t4 = time.time()
+            # print("         TIME {} {} {}".format(t4-t3, t3-t2, t2-t1))
+            # lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
             # print("New Terminal = {}".format(terminal_tensor))
             # print("Lane tensor = {}".format(lane_tensor[0:4,5:12]))
             # return
         # print("Lane tensor = {}".format(lane_tensor[0:5]))
         # print("--------------IUDUDUDUDUUDUDUD")
-        lt_idx=7
+        lt_idx=25
         terminal_tensor[0:first_key_tensor.shape[0]] = first_key_tensor
         # print("New Terminal = {}".format(terminal_tensor))
         terminal_deg_tensor = torch.zeros([terminal_size], dtype = torch.long).to(self.device)
         
-        for height in range(key_height-10, 90, -height_delta):
-            new_key =  score.getLocalMaxima_heatmap_re(out_heat, height)
+        for height in range(key_height-10, 80, -height_delta):
+
+            new_key = self.getLocalMaxima_deltamap(delta_right_image, height)
+            # new_key = self.getLocalMaxima_heatmap(out_heat, height, reverse=False)
+            # new_key =  score.getLocalMaxima_heatmap_re(out_heat, height)
+
             # print("New Key = {}".format(new_key))
             lane_num, terminal_deg_tensor = score.chainKey2(new_key, terminal_tensor, terminal_deg_tensor, deg_image, lane_num)
             lt_idx -=1
-            lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
+            lane_tensor[:,lt_idx] = terminal_tensor
+            # lane_tensor[:,lt_idx] = terminal_tensor.clone().detach().to(self.device)
             # print("New Terminal = {}".format(terminal_tensor))
             # print("Lane tensor = {}".format(lane_tensor[0:3,5:12]))
             # return
         # print("Lane tensor = {}".format(lane_tensor[0:5]))
         get_pre_lane = time.time()
-        # print("Get Pre lane Time = {}".format(get_pre_lane - get_degMap_output))
         # lane_tensor[:,0] *= (720.0/368.0)
         # lane_tensor[:,1] *= (720.0/368.0)
         score.tensor2lane(lane_tensor)
@@ -233,15 +259,80 @@ class Network_Logic:
         score.getLanebyH_sample_deg(160, 710, 10)
         # score.getLanebyH_sample_deg(160, 710, 10)
         get_gt_lane = time.time()
+        if print_mode:
+            print("     Get DegMap Time = {}".format(get_degMap_output-start_time))
+            print("     Get Pre lane Time = {}".format(get_pre_lane - get_degMap_output))
+            print("     Tensor to lane Time = {}".format(get_gt_lane - get_pre_lane))
+
 
         return score
 
-    def getKeypoint(self, out_heat, height_start=90, height_end=330):
-        score = Scoring()
-        score.device = self.device
+    def getKeypoint(self, out_heat, height_start=90, height_end=330, threshold = -0.5, reverse = False ):
+        # score = Scoring()
+        # score.device = self.device
         key_list = []
         for height in range(height_start, height_end, 10):
-            out_tensor = score.getLocalMaxima_heatmap_re(out_heat,height)
+            # out_tensor = score.getLocalMaxima_heatmap_re(out_heat,height)
+            out_tensor = self.getLocalMaxima_heatmap(out_heat,height, threshold=threshold, reverse=reverse)
             for point in out_tensor:
                 key_list.append([point[0], point[1]])
         return key_list
+
+    def getLocalMaxima_deltamap(self, img_tensor, height_val = 170, threshold = 10 ):
+        # img_tensor = torch.squeeze(img_tensor, dim=0)[1]
+        # print("--------- Get Local Maxima  {}".format(img_tensor.shape))
+        # st = time.time()
+        # for width_tensor in img_tensor:
+        width_tensor = img_tensor[height_val]
+        # print("WidthTensor shape {}".format(width_tensor.shape))
+
+        local_maxima = torch.empty(0, dtype=torch.int64)
+        last=10
+        last_idx=-20
+        # if reverse:
+        #     last = 100
+
+        for abscissa in range(0, width_tensor.shape[0], 5):
+
+            # print(width_tensor[abscissa].item())
+            abscissa_item = width_tensor[abscissa].item()
+            if  abscissa_item < threshold and ( 0 < abscissa + abscissa_item and abscissa + abscissa_item < width_tensor.shape[0]):
+                if abscissa > last_idx + 15 or local_maxima.shape[0]==0:
+                    local_maxima = torch.cat([local_maxima, torch.tensor([[height_val, int(abscissa + abscissa_item)]])])
+                elif abscissa_item < last:
+                    local_maxima[-1,1] = abscissa + abscissa_item
+                else:
+                    continue
+                last = abscissa_item
+                last_idx = abscissa
+        # print("SHAPE {}".format(local_maxima.shape))
+        return local_maxima
+
+    def getLocalMaxima_heatmap(self, img_tensor, height_val = 170, threshold = -0.5, reverse = False ):
+        # img_tensor = torch.squeeze(img_tensor, dim=0)[1]
+        # print("--------- Get Local Maxima  {}".format(img_tensor.shape))
+        # st = time.time()
+        # for width_tensor in img_tensor:
+        width_tensor = img_tensor[height_val]
+        # print("WidthTensor shape {}".format(width_tensor.shape))
+
+        local_maxima = torch.empty(0, dtype=torch.int64)
+        last=0
+        last_idx=0
+        for abscissa in range(0, width_tensor.shape[0], 5):
+
+            # print(width_tensor[abscissa].item())
+            abscissa_item = width_tensor[abscissa].item()
+            if  abscissa_item > threshold:
+                if abscissa > last_idx + 15 or local_maxima.shape[0]==0:
+                    local_maxima = torch.cat([local_maxima, torch.tensor([[height_val, abscissa]])])
+                elif abscissa_item > last:
+                    local_maxima[-1,1] = abscissa
+                else:
+                    continue
+                last = abscissa_item
+                last_idx = abscissa
+        #             print("LOCAL {}".format(local_maxima))
+
+        # print("-----------------------LOCAL {}".format(local_maxima))
+        return local_maxima
