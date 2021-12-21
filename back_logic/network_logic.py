@@ -11,23 +11,12 @@ class Network_Logic:
         self.device = torch.device('cpu')
         self.printTimer=True
         return
-    def getDeg(self, delta_up, delta_right):
-        x1 = int(delta_right_image[i,j])*horizone_direction + j
-        y1 = i
-        x2 = j
-        y2 = int(delta_up_image[i,j])*vertical_direction + i
-        m = (y2-y1)/(x2-x1+0.00001)
-        a = m
-        b = -1
-        c = y1 - m*x1
-        newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
-        newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
 
-        return
-    def getDegmap_tensor(self, delta_up_image, delta_right_image):
-        st=time.time()
+    def getDegmap(self, delta_up_image, delta_right_image, heat_map):
+        heat_map = heat_map.cpu()
         img_height = delta_up_image.shape[0]
         img_width = delta_up_image.shape[1]
+        # delta = 1
         delta = 5
         arrow_size=4
         min_threshold = 5
@@ -35,75 +24,45 @@ class Network_Logic:
         deg_padding = 3
         deg_image = np.zeros((img_height+deg_padding*2,img_width+deg_padding*2))
 
-        print("ORI {}".format(delta_up_image.shape))
-        print("ORI {}".format(type(delta_up_image)))
-        delta_up_padding_tensor = F.pad(delta_up_image, (0,0,5,0), value=100)[:-5,:]
-        delta_right_padding_tensor = F.pad(delta_right_image, (5,0,0,0), value=100)[:,:-5]
-
-        print("PAD {}".format(delta_up_padding_tensor.shape))
-
-        # print("ORI {}".format(delta_up_image[0,115]))
-        # print("PAD {}".format(delta_up_padding_tensor[3,115]))
-        # delta_up_rel_tensor = torch.zeros((img_height,img_width))
-        # delta_right_rel_tensor = torch.zeros((img_height,img_width))
-
-        delta_up_rel_tensor = torch.where(delta_up_image < delta_up_padding_tensor, delta_up_image, delta_up_image*-1)
-        delta_right_rel_tensor = torch.where(delta_right_image < delta_right_padding_tensor, delta_right_image, delta_right_image*-1)
-        pre = time.time()
         for i in range(90, delta_up_image.shape[0]-10, delta):
             for j in range(10, delta_up_image.shape[1]-10, delta):
                 
-                # horizone_direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
-                # vertical_direction= -1 if delta_up_image[i+3,j] > delta_up_image[i-3,j] else 1
-                # startPoint = (j, i)
+                # horizone_direction= -1 if delta_right_image[i,j+3] + delta_right_image[i,j+2] + delta_right_image[i,j+1] > delta_right_image[i,j-3] + delta_right_image[i,j-2] + delta_right_image[i,j-1] else 1
+                # vertical_direction= -1 if delta_up_image[i+3,j] + delta_up_image[i+2,j] + delta_up_image[i+1,j] > delta_up_image[i-3,j] + delta_up_image[i-2,j] + delta_up_image[i-1,j] else 1
 
-                x1 = int(delta_right_rel_tensor[i,j]) + j
-                y1 = i
-                x2 = j
-                y2 = int(delta_up_rel_tensor[i,j]) + i
-                m = (y2-y1)/(x2-x1+0.00001)
-                a = m
-                b = -1
-                c = y1 - m*x1
-                newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
-                newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
+                delta_right_val = int(delta_right_image[i,j])
+                delta_up_val = int(delta_up_image[i,j])
 
-                # dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_image[i,j]))
 
-                # deg = str( (delta_up_image[i,j]*vertical_direction) / (delta_right_image[i,j]*horizone_direction))[0:4]
-                # deg = str( (delta_up_image[i,j]*vertical_direction))[0:2] + " / "+str(delta_right_image[i,j]*horizone_direction)[0:2]
-                # deg=str(m)[0:5]
+                # if img_width <= j + delta_right_val:
+                #     horizone_direction = -1
+                # elif j - delta_right_val < 0:
+                #     horizone_direction = 1
+                # elif heat_map[i,j + delta_right_val] > heat_map[i,j -  delta_right_val]:
+                #     horizone_direction = 1
+                # else:
+                #     horizone_direction = -1
 
-                deg= (math.atan2(y2-y1, x2-x1)*180.0/math.pi)
-                while deg<0:
-                    deg+=180
-                while deg>180:
-                    deg-=180
-                if int(newy) < img_height and int(newx) < img_width and int(newy) > 0 and int(newx) > 0:
-                    deg_image[int(newy)+deg_padding,int(newx)+deg_padding] = deg
-        return deg_image
-
-    def getDegmap(self, delta_up_image, delta_right_image):
-        img_height = delta_up_image.shape[0]
-        img_width = delta_up_image.shape[1]
-        delta = 5
-        arrow_size=4
-        min_threshold = 5
-        threshold = 35
-        deg_padding = 3
-        deg_image = np.zeros((img_height+deg_padding*2,img_width+deg_padding*2))
-
-        for i in range(90, delta_up_image.shape[0]-10, delta):
-            for j in range(10, delta_up_image.shape[1]-10, delta):
+                # if img_height <= i + delta_up_val:
+                #     vertical_direction = -1
+                # elif i - delta_up_val < 0:
+                #     vertical_direction = 1
+                # elif heat_map[i + delta_up_val, j] > heat_map[i - delta_up_val, j]:
+                #     vertical_direction = 1
+                # else:
+                #     vertical_direction = -1
+                # horizone_direction= -1 if delta_right_image[i,j+3] + delta_right_image[i,j+2] + delta_right_image[i,j+1] > delta_right_image[i,j-3] + delta_right_image[i,j-2] + delta_right_image[i,j-1] else 1
+                # vertical_direction= -1 if delta_up_image[i+3,j] + delta_up_image[i+2,j] + delta_up_image[i+1,j] > delta_up_image[i-3,j] + delta_up_image[i-2,j] + delta_up_image[i-1,j] else 1
                 
                 horizone_direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
                 vertical_direction= -1 if delta_up_image[i+3,j] > delta_up_image[i-3,j] else 1
-                startPoint = (j, i)
 
-                x1 = int(delta_right_image[i,j])*horizone_direction + j
+                # startPoint = (j, i)
+
+                x1 = int(delta_right_val)*horizone_direction + j
                 y1 = i
                 x2 = j
-                y2 = int(delta_up_image[i,j])*vertical_direction + i
+                y2 = int(delta_up_val)*vertical_direction + i
                 m = (y2-y1)/(x2-x1+0.00001)
                 a = m
                 b = -1
@@ -111,18 +70,18 @@ class Network_Logic:
                 newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
                 newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
 
-                dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_image[i,j]))
+                dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_val))
 
-                # deg = str( (delta_up_image[i,j]*vertical_direction) / (delta_right_image[i,j]*horizone_direction))[0:4]
-                # deg = str( (delta_up_image[i,j]*vertical_direction))[0:2] + " / "+str(delta_right_image[i,j]*horizone_direction)[0:2]
-                # deg=str(m)[0:5]
 
                 deg= (math.atan2(y2-y1, x2-x1)*180.0/math.pi)
+                if delta_right_image[i,j]<3 or delta_up_val<3:
+                    deg=0
                 while deg<0:
                     deg+=180
                 while deg>180:
                     deg-=180
                 if int(newy) < img_height and int(newx) < img_width and int(newy) > 0 and int(newx) > 0:
+                    # deg_image[i+deg_padding,j+deg_padding] = deg
                     deg_image[int(newy)+deg_padding,int(newx)+deg_padding] = deg
         return deg_image
 
@@ -158,7 +117,7 @@ class Network_Logic:
         delta_up_image = out_delta[:,:,1]
         # deg_image = self.getDegmap_tensor(delta_up_image, delta_right_image)
 
-        deg_image = self.getDegmap(delta_up_image, delta_right_image)
+        deg_image = self.getDegmap(delta_up_image, delta_right_image, out_heat)
 
         # get_model_output = time.time()
         get_degMap_output = time.time()

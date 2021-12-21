@@ -7,7 +7,10 @@ import evaluator.lane as EV
 from back_logic.network_logic import Network_Logic
 import cv2
 import time
+import matplotlib.pyplot as plt
 import math
+from sklearn.cluster import DBSCAN
+from sklearn.datasets import make_blobs, make_circles, make_moons
 
 ##
 # @file image_saver.py
@@ -196,9 +199,9 @@ class ImgSaver:
             cv2.imwrite(raw_up_fir_dir, delta_up_image)
             cv2.imwrite(delta_key_fir_dir, output_delta_key_image)
 
-        def save_image_deg_total(self, image, output_image, fileName):
+        def save_image_deg_total(self, image, output_image, heat_map, fileName):
             # --------------------------Save segmented map
-
+            heat_map = heat_map.cpu().detach().numpy()[:,:,1]
             delta_folder_name = "delta"
             delta_dir_name= os.path.join(self.image_save_path, delta_folder_name)
             os.makedirs(delta_dir_name, exist_ok=True)
@@ -209,12 +212,14 @@ class ImgSaver:
             delta_up_image = output_image[:,:,1]
 
             total_arrow_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_total_arrow.jpg")
-
+            img_height = delta_up_image.shape[0]
+            img_width = delta_up_image.shape[1]
             delta = 3
             arrow_size= 2
-            min_threshold = 5
-            threshold = 60
-
+            min_threshold = 3
+            threshold = 50
+            temp_tensor = torch.zeros([3,10000])
+            tensor_idx=0
             for i in range(90, delta_up_image.shape[0]-10, delta):
                 for j in range(10, delta_up_image.shape[1]-10, delta):
 
@@ -222,7 +227,25 @@ class ImgSaver:
                     horizone_direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
                     vertical_direction= -1 if delta_up_image[i+3,j] > delta_up_image[i-3,j] else 1
                     startPoint = (j, i)
+                    delta_right_val = int(delta_right_image[i,j])
+                    delta_up_val = int(delta_up_image[i,j])
 
+                    # if img_width <= j + delta_right_val:
+                    #     horizone_direction = -1
+                    # elif j - delta_right_val < 0:
+                    #     horizone_direction = 1
+                    # elif heat_map[i,j + delta_right_val] > heat_map[i,j -  delta_right_val]:
+                    #     horizone_direction = 1
+                    # else:
+                    #     horizone_direction = -1
+                    # if img_height <= i + delta_up_val:
+                    #     vertical_direction = -1
+                    # elif i - delta_up_val < 0:
+                    #     vertical_direction = 1
+                    # elif heat_map[i + delta_up_val, j] > heat_map[i - delta_up_val, j]:
+                    #     vertical_direction = 1
+                    # else:
+                    #     vertical_direction = -1
 
                     x1 = int(delta_right_image[i,j])*horizone_direction + j
                     y1 = i
@@ -236,24 +259,88 @@ class ImgSaver:
                     c = y1 - m*x1
                     newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
                     newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
-
                     endpoint_total_arrow = (int(delta_right_image[i,j])*horizone_direction + j, int(delta_up_image[i,j])*vertical_direction + i)
                     endpoint_total_arrow = (int(newx), int(newy))
-
+                    if newx<0 or img_width < newx or newy<0 or img_height<newy:
+                        continue
+                    if heat_map[int(newy), int(newx)] < -3.5:
+                        continue
                     dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_image[i,j]))
 
                     output_total_arrow_image = cv2.circle(output_total_arrow_image, startPoint, 2, (0,255,255), -1)
                     if dist > threshold or dist < min_threshold:
                         continue
-                    
+                    deg= (math.atan2(y2-y1, x2-x1)*180.0/math.pi)
+                    if deg < 20 or deg > 160:
+                        continue
+                    if delta_right_image[i,j]<3 or delta_up_image[i,j]<3:
+                        deg=0
+                    while deg<0:
+                        deg+=180
+                    while deg>180:
+                        deg-=180
+                    temp_tensor[0,tensor_idx] = newx
+                    temp_tensor[1,tensor_idx] = newy
+                    temp_tensor[2,tensor_idx] = deg
+                    tensor_idx+=1                    
                     if vertical_direction<0:
                         output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,0,255), arrow_size)
-
                     else:
                         output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,255, 0), arrow_size)
+            print(tensor_idx)
+            print(temp_tensor)
+            self.save_image_cluster(temp_tensor[:,0:tensor_idx-1])
             cv2.imwrite(total_arrow_fir_dir, output_total_arrow_image)
             return
         
+        # lane_tensor N*3 tensor (x,y,deg)
+        def save_image_cluster(self, lane_tensor):
+            # lane_tensor
+            # for lane in lane_tensor[:,:]:
+            #     plt.scatter(lane[0], lane[1], lane[2])
+            # plt.subplot()
+            db = DBSCAN(eps=20, min_samples=10).fit(torch.transpose(lane_tensor, 0, 1))
+            core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
+            core_samples_mask[db.core_sample_indices_] = True
+            labels = db.labels_
+            print(len(np.where(labels==-1)[0]))
+            # print(np.where(labels==-1))
+            print(len(np.where(labels==0)[0]))
+            print(len(np.where(labels==1)[0]))
+            print(len(np.where(labels==2)[0]))
+            print(len(np.where(labels==3)[0]))
+            # labels = np.where(labels>= 0, myColor.color_list[labels], myColor.color_list[10])
+            # labels = np.where(labels> 0, myColor.color_list[1], myColor.color_list[10])
+            # labels +=1
+            # gt_img = np.where(gt_img>0, 255, 0)
+
+
+            plt.figure(figsize=(50, 25))
+            ax = plt.subplot(1, 2, 1, projection='3d')
+            ax.set_zlim(-10, 3600)
+            nt = lane_tensor[2]*20
+            ax.scatter(lane_tensor[0], lane_tensor[1], nt,c = labels,  s = 12,  marker='o')
+
+
+
+            ax2 = plt.subplot(1, 2, 2) 
+            ax2.scatter(lane_tensor[0], lane_tensor[1], c = labels)
+            # plt.subplot(1, 3, 3) 
+            # X, Y = make_moons(noise=0.07, random_state=1)
+            # print("X SHAPE {} {}".format(X.shape, X))
+            # print("Y SHAPE {} {}".format(Y.shape, Y))
+
+            # plot_clusters(data, cluster.DBSCAN, (), {'eps':0.020})
+            plt.savefig('mmmmmmm.png')
+
+            # fig = plt.figure()
+            # ax = fig.add_subplot(projection='3d')
+            # ax2 = fig.add_subplot()
+            # ax.scatter(lane_tensor[0], lane_tensor[1], lane_tensor[2])
+            # ax2.scatter(lane_tensor[0], lane_tensor[1])
+            # fig.savefig('mmmmmmm.png')
+            return
+
         def save_image_dir_deg(self, delta_model, heat_model, filePaths, num_of_good = 5):
             for file_idx, file in enumerate(filePaths):
                 # print("PATH : {}".format(file))

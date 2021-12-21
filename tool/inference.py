@@ -69,7 +69,7 @@ class Inference():
                 score.lane_list = pl.post_process(score.lane_list)
                 imgSaver.save_image_deg(img, output_image2, score, self.image_path, "del")  # heat, lane, GT
                 imgSaver.save_image_deg_basic(img, output_image, "del")                     # circle, arrow, raw delta_map, delta_key
-                imgSaver.save_image_deg_total(img, output_image, "del")                     # total arrow
+                imgSaver.save_image_deg_total(img, output_image, output_image2, "del")                     # total arrow
             
             elif self.cfg.backbone=="ResNet34_seg":
                 imgSaver.save_image_seg(self.model, img, output_image, "seg")
@@ -132,10 +132,10 @@ class Inference():
         return 
 
     def inference_dir_deg(self):
-        start_idx=0
-        end_idx=3000
-        # start_idx=50
-        # end_idx=60
+        # start_idx=0
+        # end_idx=3000
+        start_idx=50
+        end_idx=80
         print_time_mode = False
         print_time_mode = True
         self.print_inference_option()
