@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from model.common.res_block import ResidualBlock
 class ResNet34_seg(torch.nn.Module):
     def __init__(self):
@@ -39,7 +40,13 @@ class ResNet34_seg(torch.nn.Module):
             torch.nn.ReLU(),
             torch.nn.ConvTranspose2d(32, 2,  kernel_size=3, stride=2, output_padding=1, padding=1)
         )
-        
+        self.dim_set = torch.nn.Conv2d(512, 128, kernel_size=3, stride = 1, padding = 1)
+        self.dim_set_re = torch.nn.Conv2d(128, 512, kernel_size=3, stride = 1, padding = 1)
+        self.conv_d = torch.nn.Conv2d(128, 128, (1, 9), padding=(0, 4), bias=False)
+        self.conv_u = torch.nn.Conv2d(128, 128, (1, 9), padding=(0, 4), bias=False)
+        self.conv_r = torch.nn.Conv2d(128, 128, (9, 1), padding=(4, 0), bias=False)
+        self.conv_l = torch.nn.Conv2d(128, 128, (9, 1), padding=(4, 0), bias=False)
+
     def make_layer(self, in_dim, mid_dim, out_dim, repeats, dim_down = True, scale_down=False):
         layers = []
         layers.append(ResidualBlock(in_dim, mid_dim, out_dim, dim_down=True,  scale_down=scale_down, bottleNeck = False))
@@ -54,6 +61,22 @@ class ResNet34_seg(torch.nn.Module):
         out = self.conv3(out)
         out = self.conv4(out)
         out = self.conv5(out)
+        out = self.dim_set(out)
+        # out = torch.nn.Conv2d(512, 128, kernel_size=3, stride = 1, padding = 1)
+        for i in range(1, out.shape[2]):
+            out[..., i:i+1, :].add_(F.relu(self.conv_d(out[..., i-1:i, :])))
+
+        for i in range(out.shape[2] - 2, 0, -1):
+            out[..., i:i+1, :].add_(F.relu(self.conv_u(out[..., i+1:i+2, :])))
+
+        for i in range(1, out.shape[3]):
+            out[..., i:i+1].add_(F.relu(self.conv_r(out[..., i-1:i])))
+
+        for i in range(out.shape[3] - 2, 0, -1):
+            out[..., i:i+1].add_(F.relu(self.conv_l(out[..., i+1:i+2])))
+        # print("Out shape = {}".format(out.shape))
+        out = self.dim_set_re(out)
+
         out = self.decoder1(out)
         out = self.decoder3(out)
         # # out = self.decoder2(out)
