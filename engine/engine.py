@@ -15,6 +15,9 @@ from evaluator.lane import LaneEval
 from evaluator.lane import Eval_Cfg
 from evaluator.lane import Eval_data
 from back_logic.image_saver import ImgSaver
+from tool.scoring import Scoring
+import glob
+import cv2
 
 import torch
 class EngineTheRun():
@@ -59,7 +62,8 @@ class EngineTheRun():
             inferencer.model2.to(self.device)
             inferencer.model2.eval()
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_200_index_339.pth", map_location='cpu'))
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
 
         inferencer.device = self.device
@@ -70,7 +74,7 @@ class EngineTheRun():
         else:
             inferencer.inference()
 
-        
+
     def scoring(self):
 
         
@@ -82,6 +86,10 @@ class EngineTheRun():
         inferencer.device = self.device
         os.makedirs(inferencer.image_save_path, exist_ok=True)
         
+
+        score = Scoring()
+        score.device = self.device     
+
         if self.cfg.backbone=="ResNet34_deg":
             inferencer.model2 = ResNet34_seg()
             inferencer.model2.to(self.device)
@@ -92,7 +100,19 @@ class EngineTheRun():
             # inferencer.inference_dir_deg()
             lane_tensor, path_list = inferencer.inference_dir_deg()
             print("DEG FINIASHED")
-            
+        elif self.cfg.backbone=="ResNet34_seg":
+            img_list, seg_list = score.get_validation_set(self.cfg.image_path)
+            loss = score.get_segmantation_CE(inferencer.model, img_list, seg_list, threshold = -0.2)
+            print("Total loss = {}".format(loss))
+            # for i1, i2 in zip(img_list, seg_list):
+            #     # print(i)
+            #     # seg_path = os.path.join(os.sep, *(self.cfg.image_path.split(os.sep)[:-2]), "seg_label", *(i.split(os.sep)[-3:-1]), "20.png")
+
+            #     # seg_img = cv2.imread(seg_path)
+            #     print(i1)
+            #     print(i2)
+                # print(seg_img.shape)
+            return
         else:
             lane_tensor, path_list = inferencer.inference_dir()
         
@@ -132,8 +152,8 @@ class EngineTheRun():
                     break
             if self.cfg.backbone=="ResNet34_deg":
                 imgSaver.save_image_dir_deg(inferencer.model, inferencer.model2, filepaths, save_image_num)
-            else:
-                imgSaver.save_image_dir(filepaths)
+            # else:
+                # imgSaver.save_image_dir(filepaths)
         else:
             evaluator = EDeval()
             # evaluator.save_JSON(lane_tensor, path_list)

@@ -1,9 +1,11 @@
 from sklearn.cluster import MeanShift, estimate_bandwidth
 from back_logic.evaluate import EDeval
 import torch
+import glob
 import time
 import os
 import numpy as np
+import cv2
 import math
 class Scoring():
     def __init__(self):
@@ -16,19 +18,7 @@ class Scoring():
         self.device=None
         return
     def getLanebyH_sample(self,  h_start, h_end, h_step):
-        # os.system('clear')
-#         print("START------------")
         lane_list = []
-#         print(self.lanes)
-#         for lane in self.lanes:
-#             print("Before {}".format(lane))
-#             for node in lane:
-#                 node[0] = int(node[0]/368*720)
-#                 node[1] = int(node[1]/640*1280)
-#             print("After {}".format(lane))
-                
-#             print(lane)
-           
         for lane in self.lanes:
 
             new_single_lane=[]
@@ -66,7 +56,6 @@ class Scoring():
                         cur_height = lane[cur_height_idx][0]
                         if cur_height_idx == len(lane)-1:
                             break
-#                             continue
 
                     # print("INDEX = {}".format(cur_height_idx))
                 dx = lane[cur_height_idx][1] -lane[cur_height_idx-1][1] 
@@ -96,16 +85,9 @@ class Scoring():
     
                 newX = int(subX + lane[cur_height_idx-1][1])
                 new_single_lane.append(newX)                        
-#             if len(new_single_lane)!=55:
-#                 print("SDFSDFSDFSDF!!!!!!!!!!!!!!!!!!!")
-#                 print(len(new_single_lane))
-#                 time.sleep(100000)
-#             print(len(new_single_lane))
-            # print(new_single_lane)
+
             lane_list.append(new_single_lane)
         self.lane_list=lane_list
-#         print("SELF LIST")
-#         print(self.lane_list)
         return lane_list
     def getLanebyH_sample_deg(self,  h_start, h_end, h_step):
 
@@ -283,7 +265,7 @@ class Scoring():
                     max_value[id] = val
                     max_idx[id] = abscissa
             for id in range(1,7):
-                if max_idx[id] is not -1:
+                if max_idx[id] != -1:
                     lane_list[id].append([ordinate, max_idx[id]])
                     self.lane_length[id] +=1
         for lane in range(1,7):
@@ -325,42 +307,10 @@ class Scoring():
             index_int_tensor_vertical = torch.squeeze(tensor[:,0]).type(torch.torch.LongTensor).to(self.device)
         # print("SELECTED : {}".format(index_int_tensor))
         getdel = torch.index_select(deltamap[0],1, index_int_tensor).permute(1,0)
-        # f.writelines("GETDEL =  {} shape\n".format( getdel.shape))
 
-        
-        # print(deltamap[0,170,165])
-        # print(deltamap[0,170,270])
-        # print(deltamap[0,170,355])
-        # print("0-----------------------")
-        # print(getdel[0,170])
-        # print(getdel[1,170])
-        # print(getdel[2,170])
-
-
-        # print("GETDEL11")
-        # print(getdel)
-        # print(getdel.shape)
-        # print("asdfasdf")
-        # print(index_int_tensor)
-        # print(index_int_tensor.dtype)
-        # print(torch.unsqueeze(index_int_tensor[:,0], dim=1))
-        # print(torch.unsqueeze(index_int_tensor[:,0], dim=1).shape)
         getdel = torch.gather(getdel, 1, torch.unsqueeze(index_int_tensor_vertical, dim=1))
 
-        # print("GETDEL22")
-        # print(getdel)
-        # print(getdel.shape)
-        # # refined_tensor = tensor[:,1] + 
-        # print(tensor[:,1:2])
-        # print(tensor.get_device())
-        # print(getdel.get_device())
-        # f.writelines("----------------------------- Bkey\n {}\n".format(tensor))
         tensor[:,1:2] += getdel
-        # f.writelines("----------------------------- Akey\n {}\n".format(tensor))
-        # f.writelines("___\n")
-        # f.writelines("___\n")
-        # f.close()
-        # print(tensor[:,1:2])
 
         return
     
@@ -838,7 +788,46 @@ class Scoring():
 
         #SITA 0.5 LEFT 0.7
 
+    def get_segmantation_CE(self, model, img_list, label_list, threshold):
+        idx=0
+        loss=0
+        for img_path, label_path in zip(img_list, label_list):
+            input_img = cv2.imread(img_path)
+            label_img = cv2.imread(label_path)
+            input_img = cv2.resize(input_img, (model.output_size[1], model.output_size[0]))
+            label_img = cv2.resize(label_img, (model.output_size[1], model.output_size[0]))
+            input_tensor = torch.unsqueeze(torch.from_numpy(input_img).to(self.device), dim=0).permute(0,3,1,2).float()
+            output_tensor = torch.squeeze(torch.squeeze(model(input_tensor))[1,:,:])
+            label_tensor = torch.squeeze(torch.from_numpy(label_img).to(self.device).permute(2,0,1).float()[0,:,:])
+            output_tensor = torch.where(output_tensor > threshold, 1, 0)
+            label_tensor = torch.where(label_tensor > 0.5, 1, 0)
 
+            print(output_tensor.shape)
+            print(label_tensor.shape)
 
+            print("IDX ------------- {} / {}".format(idx, len(img_list)))
 
-# N. 검출
+            cur_loss = abs(output_tensor - label_tensor).sum()
+            loss+=cur_loss
+            # label_lane = torch.where(label_tensor > threshold)
+            # output_lane = torch.where(output_tensor > threshold)
+            print("Loss {}".format(loss.item()))
+            print("Lane Num {} / {}".format(torch.count_nonzero(label_tensor), torch.count_nonzero(output_tensor)))
+            idx+=1
+        loss /= len(img_list)
+        return loss
+
+    def get_validation_set(self, path):
+        input_img_list, seg_img_list = [], []
+        folder_list= glob.glob(os.path.join(path,"*"))
+        for folder_path in folder_list:       
+            sub_folder_list = glob.glob(os.path.join(folder_path, "*"))
+            for folder in sub_folder_list:
+                filepath = os.path.join(folder,"20.jpg")
+                seg_path = os.path.join(os.sep, *(path.split(os.sep)[:-2]), "seg_label", *(filepath.split(os.sep)[-3:-1]), "20.png")
+                
+                
+                input_img_list.append(filepath)
+                seg_img_list.append(seg_path)
+
+        return input_img_list, seg_img_list

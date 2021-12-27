@@ -200,6 +200,7 @@ class ImgSaver:
             cv2.imwrite(delta_key_fir_dir, output_delta_key_image)
 
         def save_image_deg_total(self, image, output_image, heat_map, fileName):
+            print("HERE?")
             # --------------------------Save segmented map
             heat_map = heat_map.cpu().detach().numpy()[:,:,1]
             delta_folder_name = "delta"
@@ -214,10 +215,10 @@ class ImgSaver:
             total_arrow_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_total_arrow.jpg")
             img_height = delta_up_image.shape[0]
             img_width = delta_up_image.shape[1]
-            delta = 3
+            delta = 5
             arrow_size= 2
-            min_threshold = 3
-            threshold = 50
+            min_threshold = 10
+            threshold = 25
             temp_tensor = torch.zeros([3,10000])
             tensor_idx=0
             for i in range(90, delta_up_image.shape[0]-10, delta):
@@ -230,48 +231,30 @@ class ImgSaver:
                     delta_right_val = int(delta_right_image[i,j])
                     delta_up_val = int(delta_up_image[i,j])
 
-                    # if img_width <= j + delta_right_val:
-                    #     horizone_direction = -1
-                    # elif j - delta_right_val < 0:
-                    #     horizone_direction = 1
-                    # elif heat_map[i,j + delta_right_val] > heat_map[i,j -  delta_right_val]:
-                    #     horizone_direction = 1
-                    # else:
-                    #     horizone_direction = -1
-                    # if img_height <= i + delta_up_val:
-                    #     vertical_direction = -1
-                    # elif i - delta_up_val < 0:
-                    #     vertical_direction = 1
-                    # elif heat_map[i + delta_up_val, j] > heat_map[i - delta_up_val, j]:
-                    #     vertical_direction = 1
-                    # else:
-                    #     vertical_direction = -1
-
-                    x1 = int(delta_right_image[i,j])*horizone_direction + j
+       
+                    x1 = delta_right_val*horizone_direction + j
                     y1 = i
-
                     x2 = j
-                    y2 = int(delta_up_image[i,j])*vertical_direction + i
+                    y2 = delta_up_val*vertical_direction + i
                     m = (y2-y1)/(x2-x1+0.00001)
-
                     a = m
                     b = -1
                     c = y1 - m*x1
                     newx = (b*(b*j-a*i)-a*c)/(a**2+b**2)
                     newy = (a*(-b*j+a*i)-b*c)/(a**2+b**2)
-                    endpoint_total_arrow = (int(delta_right_image[i,j])*horizone_direction + j, int(delta_up_image[i,j])*vertical_direction + i)
+                    endpoint_total_arrow = (delta_right_val*horizone_direction + j, delta_up_val*vertical_direction + i)
                     endpoint_total_arrow = (int(newx), int(newy))
                     if newx<0 or img_width < newx or newy<0 or img_height<newy:
                         continue
                     if heat_map[int(newy), int(newx)] < -3.5:
                         continue
-                    dist = abs(int(delta_right_image[i,j])) + abs(int(delta_up_image[i,j]))
+                    dist = abs(delta_right_val) + abs(delta_up_val)
 
                     output_total_arrow_image = cv2.circle(output_total_arrow_image, startPoint, 2, (0,255,255), -1)
                     if dist > threshold or dist < min_threshold:
                         continue
                     deg= (math.atan2(y2-y1, x2-x1)*180.0/math.pi)
-                    if deg < 20 or deg > 160:
+                    if deg < 5 or deg > 175:
                         continue
                     if delta_right_image[i,j]<3 or delta_up_image[i,j]<3:
                         deg=0
@@ -279,6 +262,8 @@ class ImgSaver:
                         deg+=180
                     while deg>180:
                         deg-=180
+
+
                     temp_tensor[0,tensor_idx] = newx
                     temp_tensor[1,tensor_idx] = newy
                     temp_tensor[2,tensor_idx] = deg
@@ -414,62 +399,10 @@ class ImgSaver:
             right_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_right.jpg")
             right_10_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_up_10.jpg")
 
-            # up_circle_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_up_circle.jpg")
-            # right_circle_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_right_circle.jpg")
-
-            # raw_right_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_raw_right.jpg")
-            # raw_up_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_raw_up.jpg")
-
-            # delta_key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_delta_key.jpg")
-
-        
-            # output_image = self.inference_np2np_instance(image, model)
-
-            # output_right_image = np.copy(image)
-            # output_right_circle_image = np.copy(image)
-            # output_up_image = np.copy(image)
-            # output_up_circle_image = np.copy(image)
-            # output_delta_key_image = np.copy(image)
-
-            # delta_right_image = output_image[:,:,0]
-            # delta_up_image = output_image[:,:,1]
-
-            # nl = Network_Logic()
-            # nl.device = self.device
-            # delta_key_list = nl.getKeypoint(output_image[:,:,0],  threshold = 5.5,reverse = True)
-            # for idx, lane in enumerate(delta_key_list):
-            #     output_delta_key_image = cv2.circle(output_delta_key_image, (int(lane[1]),int(lane[0])), 5, myColor.color_list[0], -1)
-            #     # output_delta_key_image = cv2.circle(output_delta_key_image, (int(lane[1]*1280.0/640.0),int(lane[0]*720.0/368.0)), 5, myColor.color_list[0], -1)
-
-            # # Arrow, Circle Image
-            # for i in range(130, delta_right_image.shape[0], 20):
-            #     for j in range(10, delta_right_image.shape[1], 30):
-            #         startPoint = (j, i)
-
-            #         if j+11 > delta_right_image.shape[1] or j-11 < 0:
-            #             continue
-            #         if delta_right_image[i,j] < delta_threshold:
-            #             direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
-            #             endPoint = (int(delta_right_image[i,j])*direction + j, i)
-            #             # cv2.circle(output_right_image, startPoint, 1, (255,0,0), -1)
-            #             output_right_circle_image = cv2.circle(output_right_circle_image, endPoint, 1, (0,0,255), -1)
-            #             output_right_image = cv2.arrowedLine(output_right_image, startPoint, endPoint, (0,0,255), 1)
-            #         if delta_up_image[i,j] < delta_threshold:
-            #             direction= -1 if delta_up_image[i+3,j] > delta_up_image[i-3,j] else 1
-            #             endPoint = (j, int(delta_up_image[i,j])*direction +i)
-            #             # cv2.circle(output_up_image, startPoint, 1, (255,0,0), -1)
-            #             output_up_image = cv2.arrowedLine(output_up_image, startPoint, endPoint, (0,0,255), 1)
-            #             output_up_circle_image = cv2.circle(output_up_circle_image, endPoint, 1, (0,0,255), -1)
-
             print("SHAPE {}".format(output_image.shape))
             cv2.imwrite(raw_fir_dir, image)
             cv2.imwrite(right_fir_dir, output_image[:,:,0])
             cv2.imwrite(right_10_fir_dir, output_image[:,:,1])
-            # cv2.imwrite(right_circle_fir_dir, output_right_circle_image)
-            # cv2.imwrite(up_circle_fir_dir, output_up_circle_image)
-            # cv2.imwrite(raw_right_fir_dir, delta_right_image)
-            # cv2.imwrite(raw_up_fir_dir, delta_up_image)
-            # cv2.imwrite(delta_key_fir_dir, output_delta_key_image)
          
         def save_image_dir(self, model, filePaths):
 

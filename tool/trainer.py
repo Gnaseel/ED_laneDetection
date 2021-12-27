@@ -91,7 +91,7 @@ class Trainer():
         data_loader = self.getDataLoader(self.device)
 
         # --------------------- Train -------------------------------------------
-        wt = [2,1]
+        wt = [1,1]
         self.setWeight(wt)
         print("WT = {}".format(wt))
         print("WT = {}".format(self.weight))
