@@ -89,26 +89,26 @@ class Scoring():
             lane_list.append(new_single_lane)
         self.lane_list=lane_list
         return lane_list
-    def getLanebyH_sample_deg(self,  h_start, h_end, h_step):
-
+    def getLanebyH_sample_deg(self, lanes,  h_start, h_end, h_step):
+        lanes = self.lanes
 #         os.system('clear')
         # print("----------------------------")
         # print("Get H Sample START------------")
         lane_list = []
-#         print(self.lanes)
-        for lane in self.lanes:
+        for lane in lanes:
             # print("Before {}".format(lane))
             for node in lane:
                 node[0] = int(node[0]/368*720)
                 node[1] = int(node[1]/640*1280)
             # print("After {}".format(lane))
+        # print(lanes)
                 
         #     print(lane)
         # print("-------------------- FINISH")
-        # print(self.lanes)
+        # print(lanes)
 
         # return
-        for lane in self.lanes:
+        for lane in lanes:
 
             new_single_lane=[]
             
@@ -576,37 +576,186 @@ class Scoring():
 
 
     def getLocalMaxima_heatmap_re(self, img_tensor, height_val = 170):
-        # img_tensor = torch.squeeze(img_tensor, dim=0)[1]
-        # print("--------- Get Local Maxima  {}".format(img_tensor.shape))
-        # st = time.time()
-        # for width_tensor in img_tensor:
         width_tensor = img_tensor[height_val]
-        # print("WidthTensor shape {}".format(width_tensor.shape))
-
         local_maxima = torch.empty(0, dtype=torch.int64)
         last=0
         for abscissa in range(0, width_tensor.shape[0], 5):
-            # print(width_tensor[abscissa].item())
             if  width_tensor[abscissa].item() > -0.5 and (local_maxima.shape[0] == 0 or local_maxima[-1,1] + 15 < abscissa  ):
-                # print("Coord {} / {}".format(height_val, abscissa))
-                # print("SHAPE {}   ".format(local_maxima.shape[0]))
-                # if local_maxima.shape[0]!=0:
-                #     print("Last {}".format( local_maxima[-1,1]))
-                # print("Idx {} ..... Val {}".format(abscissa, width_tensor[abscissa].item()))
-                # local_maxima = torch.cat([local_maxima, torch.tensor([[height_val, abscissa]]).to(self.device)])
                 local_maxima = torch.cat([local_maxima, torch.tensor([[height_val, abscissa]])])
-                # print("SHPAE {}".format(local_maxima.shape))
-                # local_maxima = torch.stack([local_maxima, torch.tensor([height_val, abscissa]).to(self.device)])
                 last = abscissa
-        # f = time.time()
-        # print("TIME {}".format(f-st))
-        
-        # return
-        # print("LOCAL MAXIMA")
-        # print(local_maxima)
         return local_maxima
     
+    def chainKey(self, new_key, terminal, terminal_deg, degmap, lane_num, print_mode = False):
 
+        if print_mode:
+            print("Ney Key {}".format(new_key))
+        if new_key.shape[0]==0:
+            return lane_num, terminal_deg
+        score_tensor = torch.zeros(new_key.shape[0], terminal.shape[0]).to(self.device)
+
+        score_tensor -=100
+        new_terminal_tensor = torch.zeros(new_key.shape[0]).to(self.device)
+        min_list=[100 for i in new_key]
+
+        for ter_idx, t_point in enumerate(terminal):
+            if t_point[0] == 0 and t_point[1] ==0:
+                continue
+            count=0
+            d_sum = 0
+            d_list = np.array([])
+            for i in range(0,49):
+                y = int(t_point[0]) + i%7
+                x = int(t_point[1]) + i//7
+                d = degmap[y,x]
+                if t_point[0]<202 and t_point[0]>199 and print_mode:
+                    print("D = {}".format(d))
+
+                if d>170 or d<10:
+                    continue
+                else:
+                    count+=1
+                    d_sum+=d
+                    d_list = np.append(d_list, d)
+            d_list.sort()
+            if count > 3:
+                d_mean = sum(d_list[len(d_list)//2-1:len(d_list)//2+1]) / 2
+            elif count == 3:
+                d_mean = d_list[1]
+            else:
+                d_mean = d_sum/(count+0.00001)
+
+            if print_mode:
+                print("\n----------Im {}".format(t_point))
+                print(" - D_mean = {}".format(d_mean))
+                print(" - D_devi = {}".format(np.std(d_list)))
+                if np.var(d_list) > 20 and len(d_list)>1:
+                    print(d_list)
+                    print(d_list.shape)
+                    print(d_list[0]+d_list[1])
+                # print(" - D_Devi = {}".format(d_mean))
+            if len(d_list)==0 or np.std(d_list) > 30:
+                d_mean = (terminal_deg[ter_idx]*0.8+90*0.2)
+                if print_mode:
+                    print("ALTER = {}".format(d_mean))
+                    
+                terminal_deg[ter_idx] = d_mean
+            else:
+                terminal_deg[ter_idx] = (d_mean+terminal_deg[ter_idx])/2
+
+            # if d_mean < 5 or d_mean>175:
+            #     d_mean=90
+            find=False
+            for key_idx, point in enumerate(new_key):
+            # for ter_idx, t_point in enumerate(terminal):
+                if point[0]==0:
+                    continue
+                d_y = point[0] - t_point[0]
+                predicted_d_x = d_y/(math.tan(d_mean/180.0*math.pi)+0.001)
+                predicted_x = predicted_d_x + t_point[1]
+                if print_mode:
+                    print("Target = {}".format(point))
+                    print("Predectetd_Coord  = {} / {}".format(point[0], predicted_x))
+                dist = abs(point[1] - predicted_x)
+                
+                # if abs(point[1] - predicted_x) < 20* math.sqrt(abs(d_y/10)):
+                # if abs(point[1] - predicted_x) < 20* math.sqrt(abs(d_y/10)):
+                if abs(point[1] - predicted_x) < 20* math.sqrt(math.sqrt(abs(d_y/10))) and abs(predicted_d_x) < 50  and abs(d_y)<80:
+                    if print_mode:
+                        print("FIND !!!")
+                        print("T  = {}".format(point))
+                        print("PRED = {}".format(t_point))
+                        print("DIST = {}".format(dist))
+                    if min_list[key_idx] > dist:
+                        score_tensor[key_idx, :] = -100
+                        min_list[key_idx] = dist
+                        score_tensor[key_idx, ter_idx] = -100 + dist
+                        new_terminal_tensor[key_idx]=1
+                        find = True
+
+            if not find and np.std(d_list) > 30:
+                if print_mode:
+                    print("Not Founded !!! {}".format(0))
+                new_d_list = np.where(d_list > 90, 180 - d_list, d_list)
+                d_mean = np.mean(new_d_list)
+                # d_mean = 180-d_mean
+            for key_idx, point in enumerate(new_key):
+            # for ter_idx, t_point in enumerate(terminal):
+                if point[0]==0:
+                    continue
+                d_y = point[0] - t_point[0]
+                predicted_d_x = d_y/(math.tan(d_mean/180.0*math.pi)+0.001)
+                predicted_x = predicted_d_x + t_point[1]
+
+                if print_mode:
+                    print("Target = {}".format(point))
+                    print("Predectetd_Coord  = {} / {}".format(point[0], predicted_x))
+                dist = abs(point[1] - predicted_x)
+                if abs(point[1] - predicted_x) < 20* math.sqrt(abs(d_y/10))and abs(predicted_d_x) < 50  and abs(d_y)<80:
+                    if print_mode:
+
+                        print("FIND !!!")
+                        print("T  = {}".format(point))
+                        print("PRED = {}".format(t_point))
+                        print("DIST = {}".format(dist))
+                    if min_list[key_idx] > dist:
+                        score_tensor[key_idx, :] = -100
+                        min_list[key_idx] = dist
+                        score_tensor[key_idx, ter_idx] = -100 + dist
+                        new_terminal_tensor[key_idx]=1
+                        find = True
+
+            if not find and np.std(d_list) > 30:
+                if print_mode:
+                    print("Not Founded !!! {}".format(0))
+                new_d_list = np.where(d_list < 90, 180 - d_list, d_list)
+                d_mean = np.mean(new_d_list)
+                # d_mean = 180-d_mean
+            for key_idx, point in enumerate(new_key):
+            # for ter_idx, t_point in enumerate(terminal):
+                if point[0]==0:
+                    continue
+                d_y = point[0] - t_point[0]
+                predicted_d_x = d_y/(math.tan(d_mean/180.0*math.pi)+0.001)
+                predicted_x = predicted_d_x + t_point[1]
+                if print_mode:
+                    print("Target = {}".format(point))
+                    print("Predectetd_Coord  = {} / {}".format(point[0], predicted_x))
+                    print("PREDECTED _DX {}".format(predicted_d_x))
+                dist = abs(point[1] - predicted_x)
+                if abs(point[1] - predicted_x) < 20* math.sqrt(abs(d_y/10))and abs(predicted_d_x) < 50  and abs(d_y)<80:
+                    if print_mode:
+
+                        print("FIND !!!")
+                        print("T  = {}".format(point))
+                        print("PRED = {}".format(t_point))
+                        print("DIST = {}".format(dist))
+                    if min_list[key_idx] > dist:
+                        score_tensor[key_idx, :] = -100
+                        min_list[key_idx] = dist
+                        score_tensor[key_idx, ter_idx] = -100 + dist
+                        new_terminal_tensor[key_idx]=1
+                        find = True
+        # if not find:
+        #     print("Key inx = {}".format(key_idx))
+        #     print("lane_num= {}".format(lane_num))
+        #     score_tensor[key_idx, lane_num] += 10
+        #     lane_num+=1
+        for idx, new_terminal in enumerate(new_terminal_tensor):
+            if new_terminal < 1:
+                score_tensor[idx, lane_num] += 10
+                lane_num+=1
+
+
+        max_torch, max_idx_torch = torch.max(score_tensor, dim = 0)
+
+        max_torch = max_torch
+        max_idx_torch = max_idx_torch
+        temp = torch.where(max_torch>-100, max_idx_torch+1,0)
+        terminal[torch.nonzero(temp, as_tuple=True)] = new_key[temp[torch.nonzero(temp, as_tuple=True)]-1]
+        return lane_num, terminal_deg
+
+        #SITA 0.5 LEFT 0.7
+    
     
     def chainKey2(self, new_key, terminal, terminal_deg, degmap, lane_num, print_mode = False):
 
@@ -787,19 +936,27 @@ class Scoring():
         return lane_num, terminal_deg
 
         #SITA 0.5 LEFT 0.7
-
     def get_segmantation_CE(self, model, img_list, label_list, threshold):
         idx=0
         loss=0
+        FP = 0
+        FN = 0
         for img_path, label_path in zip(img_list, label_list):
             input_img = cv2.imread(img_path)
             label_img = cv2.imread(label_path)
             input_img = cv2.resize(input_img, (model.output_size[1], model.output_size[0]))
             label_img = cv2.resize(label_img, (model.output_size[1], model.output_size[0]))
             input_tensor = torch.unsqueeze(torch.from_numpy(input_img).to(self.device), dim=0).permute(0,3,1,2).float()
-            output_tensor = torch.squeeze(torch.squeeze(model(input_tensor))[1,:,:])
+
+
+
+            output_tensor = torch.squeeze(model(input_tensor))
+            # output_tensor = torch.nn.functional.log_softmax(output_1, dim=0)
+            output_tensor = torch.where(output_tensor[0]>output_tensor[1], 0, 1)
+
             label_tensor = torch.squeeze(torch.from_numpy(label_img).to(self.device).permute(2,0,1).float()[0,:,:])
-            output_tensor = torch.where(output_tensor > threshold, 1, 0)
+
+            # output_tensor = torch.where(output_tensor > threshold, 1, 0)
             label_tensor = torch.where(label_tensor > 0.5, 1, 0)
 
             print(output_tensor.shape)
@@ -807,15 +964,67 @@ class Scoring():
 
             print("IDX ------------- {} / {}".format(idx, len(img_list)))
 
+
+
+            raw_loss = label_tensor-output_tensor
+            # x = torch.tensor([1, 2, 2, 2, 3])
+            x_unique = raw_loss.unique(sorted=True)
+            # x_unique_count = torch.stack([(raw_loss==x_u).sum() for x_u in x_unique])
+            cur_FP =(raw_loss==-1).sum().item()
+            cur_FN =(raw_loss==1).sum().item()
             cur_loss = abs(output_tensor - label_tensor).sum()
-            loss+=cur_loss
+
+            # print(x_unique)
+            # print(x_unique_count)
+            # loss+=cur_loss.item()
+            FP +=cur_FP
+            FN +=cur_FN
+            loss +=cur_FP + cur_FN
+            print(type(FP))
+            print("Loss {}   FP {}, FN {}".format(cur_FP +cur_FN, cur_FP,cur_FN))
+            if cur_loss != cur_FP + cur_FN:
+                print("Loss {} , {}  FP {}, FN {}".format(cur_FP +cur_FN, cur_loss, cur_FP,cur_FN))
+                print("LOSS UNMATCHED!!")
+                return
             # label_lane = torch.where(label_tensor > threshold)
             # output_lane = torch.where(output_tensor > threshold)
-            print("Loss {}".format(loss.item()))
             print("Lane Num {} / {}".format(torch.count_nonzero(label_tensor), torch.count_nonzero(output_tensor)))
             idx+=1
         loss /= len(img_list)
-        return loss
+        FP /= len(img_list)
+        FN /= len(img_list)
+        return loss, FP, FN
+
+    # def get_segmantation_CE(self, model, img_list, label_list, threshold):
+    #     idx=0
+    #     loss=0
+    #     for img_path, label_path in zip(img_list, label_list):
+    #         input_img = cv2.imread(img_path)
+    #         label_img = cv2.imread(label_path)
+    #         input_img = cv2.resize(input_img, (model.output_size[1], model.output_size[0]))
+    #         label_img = cv2.resize(label_img, (model.output_size[1], model.output_size[0]))
+    #         input_tensor = torch.unsqueeze(torch.from_numpy(input_img).to(self.device), dim=0).permute(0,3,1,2).float()
+    #         output_tensor = torch.squeeze(torch.squeeze(model(input_tensor))[1,:,:])
+    #         label_tensor = torch.squeeze(torch.from_numpy(label_img).to(self.device).permute(2,0,1).float()[0,:,:])
+
+
+    #         output_tensor = torch.where(output_tensor > threshold, 1, 0)
+    #         label_tensor = torch.where(label_tensor > 0.5, 1, 0)
+
+    #         print(output_tensor.shape)
+    #         print(label_tensor.shape)
+
+    #         print("IDX ------------- {} / {}".format(idx, len(img_list)))
+
+    #         cur_loss = abs(output_tensor - label_tensor).sum()
+    #         loss+=cur_loss
+    #         # label_lane = torch.where(label_tensor > threshold)
+    #         # output_lane = torch.where(output_tensor > threshold)
+    #         print("Loss {}".format(loss.item()))
+    #         print("Lane Num {} / {}".format(torch.count_nonzero(label_tensor), torch.count_nonzero(output_tensor)))
+    #         idx+=1
+    #     loss /= len(img_list)
+    #     return loss
 
     def get_validation_set(self, path):
         input_img_list, seg_img_list = [], []

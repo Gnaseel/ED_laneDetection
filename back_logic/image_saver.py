@@ -5,6 +5,8 @@ import data.sampleColor as myColor
 from tool.scoring import Scoring
 import evaluator.lane as EV
 from back_logic.network_logic import Network_Logic
+from back_logic.laneBuilder import LaneBuilder
+from back_logic.laneBuilder import Lane
 import cv2
 import time
 import matplotlib.pyplot as plt
@@ -91,7 +93,12 @@ class ImgSaver:
             # gt_path = os.path.join(img_path)
             print("GT PAHT {}".format(gt_path))
             gt_img = cv2.imread(gt_path)*30
-            seged_image = cv2.resize(out_heat.cpu().detach().numpy()[:,:,1]*50, (1280,720))
+            # seged_image = cv2.resize(out_heat.cpu().detach().numpy()[:,:]*50, (1280,720))
+            out_heat = torch.unsqueeze(out_heat, dim=2)
+            print(image.shape)
+            print(out_heat.cpu().detach().numpy().shape)
+            ## HERE!!
+            seged_image = cv2.resize(np.copy(image), (1280,720))
             output_key_image = cv2.resize(np.copy(image), (1280,720))
             output_lane_image = cv2.resize(np.copy(image), (1280,720))
 
@@ -102,7 +109,7 @@ class ImgSaver:
             # score = Scoring()
             # score.device = self.device     
             # score = nl.getScoreInstance_deg("temp_path", out_heat, out_delta)
-            key_list = nl.getKeypoint(out_heat[:,:,1])
+            key_list = nl.getKeypoint(out_heat)
             for idx, lane in enumerate(key_list):
                 output_key_image = cv2.circle(output_key_image, (int(lane[1]*1280.0/640.0),int(lane[0]*720.0/368.0)), 5, myColor.color_list[0], -1)
             for idx, lane in enumerate(score.lane_list):
@@ -122,17 +129,22 @@ class ImgSaver:
             # print("LANE {}".format(type(score.lane_list)))
             print("LANE {}".format(score.lane_list))
             # print("Image path {}".format(img_path))
+            # HAVE TO MOVE!!!!!!!!!!!!!!!!!
             ev = EV.LaneEval.bench_one_instance(score.lane_list, img_path, gt_path)
             cv2.imwrite(raw_fir_dir, image)
             cv2.imwrite(heat_key_fir_dir, output_key_image)
             cv2.imwrite(lane_fir_dir, output_lane_image)
+            print("SHAPE1 {}".format(out_heat.shape))
+            # out_heat = torch.where(out_heat[:,:,1] > out_heat[:,:,0], 1, 0)
+            print("SHAPE2 {}".format(out_heat.shape))
             out_heat = out_heat.cpu().detach().numpy()
-            cv2.imwrite(heat_fir_dir, (out_heat[:,:,1]+3)*50)
+            cv2.imwrite(heat_fir_dir, (out_heat[:,:])*200)
             gt_img = np.where(gt_img>0, 255, 0)
             cv2.imwrite(gt_fir_dir, gt_img)
             cv2.imwrite(seged_fir_dir, seged_image)
 
-        def save_image_deg_basic(self, image, output_image, fileName, delta_height=10, delta_threshold = 50):
+        def save_image_deg_basic(self, image, output_image, fileName, delta_height=10, delta_threshold = 30):
+            delta_threshold_min=3
             # return
             output_image = output_image.cpu().detach().numpy()
             # --------------------------Save segmented map
@@ -154,7 +166,7 @@ class ImgSaver:
         
             # output_image = self.inference_np2np_instance(image, model)
 
-            output_right_image = np.copy(image)
+            output_right_arrow_image = np.copy(image)
             output_right_circle_image = np.copy(image)
             output_up_image = np.copy(image)
             output_up_circle_image = np.copy(image)
@@ -171,27 +183,106 @@ class ImgSaver:
                 # output_delta_key_image = cv2.circle(output_delta_key_image, (int(lane[1]*1280.0/640.0),int(lane[0]*720.0/368.0)), 5, myColor.color_list[0], -1)
 
             # Arrow, Circle Image
-            for i in range(130, delta_right_image.shape[0], 20):
-                for j in range(10, delta_right_image.shape[1], 30):
+            lane_in_height=[0 for i in range(6)]
+            key_list=[]
+            key_up_list=[]
+            for i in range(130, delta_right_image.shape[0], 10):
+
+                width_list=[]
+                for j in range(10, delta_right_image.shape[1], 10):
+
                     startPoint = (j, i)
+                    output_right_circle_image = cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
+                    output_up_circle_image = cv2.circle(output_up_circle_image, startPoint, 1, (255,0,0), -1)
 
                     if j+11 > delta_right_image.shape[1] or j-11 < 0:
                         continue
-                    if delta_right_image[i,j] < delta_threshold:
+                    if  delta_threshold_min < delta_right_image[i,j] and delta_right_image[i,j] < delta_threshold:
                         direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
+                        width_list.append(int(delta_right_image[i,j])*direction + j)
                         endPoint = (int(delta_right_image[i,j])*direction + j, i)
-                        # cv2.circle(output_right_image, startPoint, 1, (255,0,0), -1)
+                        # cv2.circle(output_right_arrow_image, startPoint, 1, (255,0,0), -1)
                         output_right_circle_image = cv2.circle(output_right_circle_image, endPoint, 1, (0,0,255), -1)
-                        output_right_image = cv2.arrowedLine(output_right_image, startPoint, endPoint, (0,0,255), 1)
-                    if delta_up_image[i,j] < delta_threshold:
+                        output_right_arrow_image = cv2.arrowedLine(output_right_arrow_image, startPoint, endPoint, (0,0,255), 1)
+                        
+                    if  delta_threshold_min < delta_up_image[i,j] and delta_up_image[i,j] < delta_threshold:
                         direction= -1 if delta_up_image[i+3,j] > delta_up_image[i-3,j] else 1
                         endPoint = (j, int(delta_up_image[i,j])*direction +i)
                         # cv2.circle(output_up_image, startPoint, 1, (255,0,0), -1)
                         output_up_image = cv2.arrowedLine(output_up_image, startPoint, endPoint, (0,0,255), 1)
                         output_up_circle_image = cv2.circle(output_up_circle_image, endPoint, 1, (0,0,255), -1)
+   
 
+                if len(width_list)==0:
+                    continue
 
-            cv2.imwrite(right_fir_dir, output_right_image)
+                count=1
+                
+                buf_count=1
+                buf=last=width_list[0]
+                point_list=[]
+                point_up_list=[]
+                print("width_list {}".format(width_list))
+                for idx in width_list[1:]:
+                    if idx > last+40:
+                        count +=1
+                        point_list.append([i, int(buf/buf_count)])
+                        print("ADDED !! {}, {}".format(buf, buf_count))
+                        buf_count=1
+                        buf=idx
+                    else:
+                        buf_count+=1
+                        buf+=idx
+                    last = idx
+                if buf_count != 0:
+                    print("ADDED !! {}, {}".format(buf, buf_count))
+                    point_list.append([i, int(buf/buf_count)])
+
+                for idxs in point_list:
+                    # print("IDXS {}".format(idxs))
+                    idx = idxs[1]
+                    output_right_circle_image = cv2.circle(output_right_circle_image, (idx, i), 3, (0,255,0), -1)
+                    min_abs =  100
+
+                    for point in range(idx-40, idx+41, 2):
+                        if  0<point and point < delta_right_image.shape[1] and 7 < delta_up_image[i,point] and delta_up_image[i,point] < 13:
+                            # print("!! {} {}".format(point, delta_right_image.shape[1]))
+                            direction = -1 if delta_up_image[i-5,point] > delta_up_image[i+5,point] else 1
+                            if direction == -1: # Go Down
+                                continue
+                            resi = abs(idx-point)
+                            if resi < min_abs:
+                                new_10_start_point = (idx, i)
+                                new_10_point = (point, i-10*direction)
+                                min_abs = resi
+                    if min_abs < 99:
+                        output_right_circle_image = cv2.arrowedLine(output_right_circle_image, new_10_start_point, new_10_point, (0,255,255), 2)
+                        point_up_list.append([new_10_start_point[0], new_10_point[0]])
+                            # output_right_circle_image = cv2.circle(output_right_circle_image, new_10_point, 1, (0,255,255), -1)
+
+                # -------------- Get Lane Num --------------------
+                print("new_width_list {}".format(point_list))
+                print("Height {}, Count {}".format(i, count))
+                if count>5:
+                    count=5
+                lane_in_height[count] +=1
+                key_list.append(point_list)
+                key_up_list.append(point_up_list)
+            key_up_list = key_up_list[1:]
+            builder = LaneBuilder()
+            lane_data = Lane()
+            lane_data = builder.buildLane(key_list, key_up_list, delta_up_image)
+            for idx, lane in enumerate(lane_data.lane_list):
+                for point in lane:
+                    output_right_circle_image = cv2.circle(output_right_circle_image, (point[1], point[0]), 5, myColor.color_list[idx if idx <=10 else 10], -1)
+            myList = lane_data.convert_tuSimple()
+            print(myList)
+            print("Lane Num {}".format(lane_data.lanes_num))   
+            print("Lane Idx Num {}".format(lane_data.lane_idx))   
+            # print("Key List {}".format(key_list))   
+            # print("Key Up List {}".format(key_up_list))   
+
+            cv2.imwrite(right_fir_dir, output_right_arrow_image)
             cv2.imwrite(up_fir_dir, output_up_image)
             cv2.imwrite(right_circle_fir_dir, output_right_circle_image)
             cv2.imwrite(up_circle_fir_dir, output_up_circle_image)
@@ -200,9 +291,8 @@ class ImgSaver:
             cv2.imwrite(delta_key_fir_dir, output_delta_key_image)
 
         def save_image_deg_total(self, image, output_image, heat_map, fileName):
-            print("HERE?")
             # --------------------------Save segmented map
-            heat_map = heat_map.cpu().detach().numpy()[:,:,1]
+            heat_map = heat_map.cpu().detach().numpy()
             delta_folder_name = "delta"
             delta_dir_name= os.path.join(self.image_save_path, delta_folder_name)
             os.makedirs(delta_dir_name, exist_ok=True)
@@ -294,27 +384,25 @@ class ImgSaver:
             print(len(np.where(labels==1)[0]))
             print(len(np.where(labels==2)[0]))
             print(len(np.where(labels==3)[0]))
-            # labels = np.where(labels>= 0, myColor.color_list[labels], myColor.color_list[10])
-            # labels = np.where(labels> 0, myColor.color_list[1], myColor.color_list[10])
-            # labels +=1
-            # gt_img = np.where(gt_img>0, 255, 0)
-
 
             plt.figure(figsize=(50, 25))
             ax = plt.subplot(1, 2, 1, projection='3d')
             ax.set_zlim(-10, 3600)
             nt = lane_tensor[2]*20
-            ax.scatter(lane_tensor[0], lane_tensor[1], nt,c = labels,  s = 12,  marker='o')
+            ax.invert_yaxis()
+            ax.scatter(lane_tensor[0], lane_tensor[1], nt,  s = 15,  marker='o')
+            # ax.scatter(lane_tensor[0], lane_tensor[1], nt,c = labels,  s = 15,  marker='o')
 
 
 
             ax2 = plt.subplot(1, 2, 2) 
-            ax2.scatter(lane_tensor[0], lane_tensor[1], c = labels)
+            ax2.invert_yaxis()
+            ax2.scatter(lane_tensor[0], lane_tensor[1])
+            # ax2.scatter(lane_tensor[0], lane_tensor[1], c = labels)
             # plt.subplot(1, 3, 3) 
             # X, Y = make_moons(noise=0.07, random_state=1)
             # print("X SHAPE {} {}".format(X.shape, X))
             # print("Y SHAPE {} {}".format(Y.shape, Y))
-
             # plot_clusters(data, cluster.DBSCAN, (), {'eps':0.020})
             plt.savefig('mmmmmmm.png')
 
@@ -326,67 +414,43 @@ class ImgSaver:
             # fig.savefig('mmmmmmm.png')
             return
 
-        def save_image_dir_deg(self, delta_model, heat_model, filePaths, num_of_good = 5):
-            for file_idx, file in enumerate(filePaths):
-                # print("PATH : {}".format(file))
-                img = cv2.imread(file)
-                img = cv2.resize(img, (delta_model.output_size[1], delta_model.output_size[0]))
+        def save_image_dir_deg(self, inferencer, path, dir_name):
+            
+            # for file_idx, file in enumerate(paths):
+            img = cv2.imread(path)
+            lane_list = inferencer.inference_instance(img)
+            path_list = path.split(os.sep)
+            clip_idx = path_list.index('clips')
+            raw_img = self.plot_lane_img(img, lane_list)
+            gt_img = cv2.imread(os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *path_list[clip_idx+1:-1],"20.png"))
 
-                nl = Network_Logic()
-                nl.device=self.device
-                input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
-                output_tensor = delta_model(input_tensor)
-                out_delta = output_tensor[0].permute(1,2,0).cpu().detach().numpy()
-                output_tensor = heat_model(input_tensor)
-                out_heat = output_tensor[0].permute(1,2,0)
-                score = nl.getScoreInstance_deg(file, out_heat, out_delta)
+            gt_path = "./evaluator/gt.json"
+            img_path = os.path.join(*path.split(os.sep)[-4:])    
+            print("IMG PATH = {}".format(img_path))            
+            print("dir_name PATH = {}".format(dir_name))            
+            ev = EV.LaneEval.bench_one_instance(lane_list, img_path, gt_path)
+            print("EV = {}".format(ev))
+            raw_img = cv2.putText(raw_img, str(ev[0])[0:5], (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
+ 
+            dir_name = os.path.join(self.image_save_path, "check", dir_name)
+            os.makedirs(dir_name, exist_ok = True)
+            fileName = "raw"
+            fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(fileName)+".jpg")
+            cv2.imwrite(fir_dir, raw_img)
+            gtfileName = "ground_truth"
+            fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(gtfileName)+".jpg")
+            cv2.imwrite(fir_dir, gt_img*50)
 
-                # score.prob2lane(img_idx, img_val, 40, 350, 5 )
-                # score.getLanebyH_sample(160, 710, 10)
-                path_list = file.split(os.sep)
-                raw_img = cv2.resize(img, dsize = (1280, 720))
-                cls_img = self.inference_np2np_instance(img,heat_model)[:,:,1]
-                cls_img = cv2.resize(cls_img, dsize = (1280, 720))
-                cls_img = (cls_img-0.4)*30
-                # print("PATH LIST = {}".format(path_list))
-                # print("IDX = {}".format(path_list.index('clips')))
-                clip_idx = path_list.index('clips')
-                gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *path_list[clip_idx+1:-1],"20.png")
-
-                # print("GT PATH = {}".format(gt_path))
-                gt_img = cv2.imread(gt_path)*30
-
-
-                for idx, lane in enumerate(score.lane_list):
-                    if len(lane) <=2:
-                        continue
-                    for idx2, height in enumerate(range(160, 710+1, 10)):
-                        if lane[idx2] > 0:
-                            cls_img = cv2.circle(cls_img, (lane[idx2],height), 5, myColor.color_list[idx if idx <=10 else 10], -1)
-                            gt_img = cv2.circle(gt_img, (lane[idx2],height), 5, myColor.color_list[idx if idx <=10 else 10], -1)
-                            raw_img = cv2.circle(raw_img, (lane[idx2],height), 5, myColor.color_list[idx if idx <=10 else 10], -1)
-                        idx2+=1
-                    idx+=1
-
-                if file_idx > num_of_good:
-                    dir_name = os.path.join(self.image_save_path, "check", "good_del")
-                else:
-                    dir_name = os.path.join(self.image_save_path, "check", "bad_del")
-                os.makedirs(dir_name, exist_ok = True)
-                fileName = "raw"
-                fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(fileName)+".jpg")
-                # print("Raw Path = {}".format(fir_dir))
-                cv2.imwrite(fir_dir, raw_img)
-                fileName = "segmented"
-                fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(fileName)+".jpg")
-                # print("Seg Path = {}".format(fir_dir))
-                cv2.imwrite(fir_dir, cls_img)
-                gtfileName = "ground_truth"
-                fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(gtfileName)+".jpg")
-                # print("GT Path = {}".format(fir_dir))
-                cv2.imwrite(fir_dir, gt_img)
             return
-
+        def plot_lane_img(self, img, lane_list):
+            raw_img = img
+            for idx, lane in enumerate(lane_list):
+                if len(lane) <=2:
+                    continue
+                for idx2, height in enumerate(range(160, 710+1, 10)):
+                    if lane[idx2] > 0:
+                        raw_img = cv2.circle(raw_img, (lane[idx2],height), 5, myColor.color_list[idx if idx <=10 else 10], -1)
+            return raw_img
         def save_image_delta(self, image, output_image, fileName, delta_height=10, delta_threshold = 50):
             # return
             output_image = output_image.cpu().detach().numpy()

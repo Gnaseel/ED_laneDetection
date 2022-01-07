@@ -83,7 +83,7 @@ class LaneEval(object):
 
     
     @staticmethod
-    def bench_one_instance(pred_lanes, path, gt_file):
+    def bench_one_instance(pred_lanes, path, gt_file = "./evaluator/gt.json"):
         json_gt = [json.loads(line) for line in open(gt_file).readlines()]
         gts = {l['raw_file']: l for l in json_gt}
         accuracy, fp, fn = 0., 0., 0.
@@ -127,7 +127,7 @@ class LaneEval(object):
 
     @staticmethod
     def bench_one_submit(pred_file, gt_file):
-        cfg = Eval_Cfg()
+        eval_list=[]
         try:
             json_pred = [json.loads(line) for line in open(pred_file).readlines()]
         except BaseException as e:
@@ -171,7 +171,7 @@ class LaneEval(object):
                 ed.gt_lane = len(gt_lanes)
                 ed.pred_lane = len(pred_lanes)
                 ed.filePath = pred['raw_file']
-                cfg.eval_list.append(ed)
+                eval_list.append(ed)
 
 
             except BaseException as e:
@@ -186,7 +186,7 @@ class LaneEval(object):
             {'name': 'FP', 'value': fp / num, 'order': 'asc'},
             {'name': 'FN', 'value': fn / num, 'order': 'asc'}
         ]))
-        return cfg
+        return eval_list
 
 
 if __name__ == '__main__':

@@ -6,6 +6,10 @@ from model.VGG16_rf20 import VGG16_rf20
 from model.ResNet34 import ResNet34
 from model.ResNet34_lin import ResNet34_lin
 from model.ResNet34_seg import ResNet34_seg
+from model.ResNet34_seg_SCNN import ResNet34_seg_SCNN
+from model.ResNet34_delta_SCNN import ResNet34_delta_SCNN
+from model.ResNet18_delta_SCNN import ResNet18_delta_SCNN
+from model.ResNet18_seg_SCNN import ResNet18_seg_SCNN
 from model.ResNet34_delta import ResNet34_delta
 from model.ResNet50 import ResNet50
 from torchsummary import summary
@@ -33,7 +37,7 @@ class EngineTheRun():
         trainer = Trainer(self.cfg)
         trainer.model = self.getModel().to(self.device)
         # trainer.dataset_path = "D:\\lane_dataset\\img_lane_640.npy"
-        trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/img_lane_640.npy"
+        trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
 
         trainer.device = self.device
         if self.cfg.backbone=="ResNet34_seg":
@@ -45,25 +49,31 @@ class EngineTheRun():
         elif self.cfg.backbone=="ResNet34_deg":
             trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
             trainer.train_deg()
+        elif self.cfg.backbone=="ResNet34_delta_SCNN":
+            trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
+            trainer.train_deg()
+        elif self.cfg.backbone=="ResNet18_delta_SCNN":
+            trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
+            trainer.train_deg()
         elif self.cfg.backbone=="ResNet50":
             trainer.train_lane_lin()
         else:
-            trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/img_lane_640.npy"
-            trainer.train_lane_lin()
+            trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
+            trainer.train_seg()
 
     def inference(self):
         inferencer = Inference(self.cfg)
         inferencer.model = self.getModel().to(self.device)
         inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
         inferencer.model.eval()
-        if self.cfg.backbone=="ResNet34_deg":
+        if self.cfg.backbone=="ResNet34_deg"  or self.cfg.backbone=="ResNet18_delta_SCNN":
             print("SET Model 2")
-            inferencer.model2 = ResNet34_seg()
+            # inferencer.model2 = ResNet34_seg()
+            inferencer.model2 = ResNet18_seg_SCNN()
             inferencer.model2.to(self.device)
             inferencer.model2.eval()
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_200_index_339.pth", map_location='cpu'))
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_70_index_339.pth", map_location='cpu'))
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/12_27_17_41_device_cuda:0/epoch_100_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
 
         inferencer.device = self.device
@@ -90,29 +100,27 @@ class EngineTheRun():
         score = Scoring()
         score.device = self.device     
 
-        if self.cfg.backbone=="ResNet34_deg":
+        # if self.cfg.backbone=="ResNet34_deg":
+        if self.cfg.backbone=="ResNet34_deg"  or self.cfg.backbone=="ResNet18_delta_SCNN" or self.cfg.backbone=="ResNet34_delta_SCNN":
+
             inferencer.model2 = ResNet34_seg()
+            inferencer.model2 = ResNet18_seg_SCNN()
             inferencer.model2.to(self.device)
             inferencer.model2.eval()
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/11_06_14_14_device_cuda:2/epoch_50_index_339.pth", map_location='cpu'))
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_100_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_110_index_339.pth", map_location='cpu'))
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/12_27_17_41_device_cuda:0/epoch_100_index_339.pth", map_location='cpu'))
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
+
 
             # inferencer.inference_dir_deg()
             lane_tensor, path_list = inferencer.inference_dir_deg()
             print("DEG FINIASHED")
-        elif self.cfg.backbone=="ResNet34_seg":
-            img_list, seg_list = score.get_validation_set(self.cfg.image_path)
-            loss = score.get_segmantation_CE(inferencer.model, img_list, seg_list, threshold = -0.2)
-            print("Total loss = {}".format(loss))
-            # for i1, i2 in zip(img_list, seg_list):
-            #     # print(i)
-            #     # seg_path = os.path.join(os.sep, *(self.cfg.image_path.split(os.sep)[:-2]), "seg_label", *(i.split(os.sep)[-3:-1]), "20.png")
 
-            #     # seg_img = cv2.imread(seg_path)
-            #     print(i1)
-            #     print(i2)
-                # print(seg_img.shape)
-            return
+        elif self.cfg.backbone=="ResNet34_seg" or self.cfg.backbone=="ResNet18_seg_SCNN"  or self.cfg.backbone=="ResNet34_seg_SCNN" :
+            img_list, seg_list = score.get_validation_set(self.cfg.image_path)
+            loss, FP, FN = score.get_segmantation_CE(inferencer.model, img_list, seg_list, threshold = 0.5)
+            print("Total loss = {} . FP {}    FN {}".format(loss, FP, FN))
+            # return
         else:
             lane_tensor, path_list = inferencer.inference_dir()
         
@@ -120,70 +128,53 @@ class EngineTheRun():
         imgSaver = ImgSaver(self.cfg)
         imgSaver.device = self.device
         filepaths=[]
+        save_image_num=20
+
+        evaluator = EDeval()
+        bench = LaneEval()
+
         if len(lane_tensor) > 2700:
-            evaluator = EDeval()
-            for idx, lane in enumerate(lane_tensor):
-                if len(lane)>5:
-                    lane_tensor[idx] = lane[0:5]
             evaluator.save_JSON(lane_tensor, path_list)
-            bench = LaneEval()
-            eval_cfg = Eval_Cfg()
             print("BENCH1")
-            eval_cfg = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
-            eval_cfg.sort_list()
+            evaluator = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+            evaluator.sort_list()
             #--------------------- Save Good Image ---------------
-            idx =0
-            save_image_num=20
-            for i in eval_cfg.eval_list:
-                idx+=1
-                added_path = os.path.join(self.cfg.image_path, *i.filePath.split(os.sep)[1:])
-                filepaths.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
-# /home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/test_set/clips/0601/1495058651589498298/20.jpg
+            for idx, list in enumerate(evaluator.eval_list):
+                added_path = os.path.join(self.cfg.image_path, *list.filePath.split(os.sep)[1:])
+                # evaluator.good_path_list.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
+                imgSaver.save_image_dir_deg(inferencer, added_path, "good")
                 if idx > save_image_num:
                     break
             #--------------------- Save Bad Image ---------------
-            idx =0
-            for i in reversed(eval_cfg.eval_list):
-                idx+=1
-                added_path = os.path.join(self.cfg.image_path, *i.filePath.split(os.sep)[1:])
-                filepaths.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
-
+            for idx, list in enumerate(reversed(evaluator.eval_list)):
+                added_path = os.path.join(self.cfg.image_path, *list.filePath.split(os.sep)[1:])
+                # evaluator.bad_path_list.append(added_path) #+ "/0531/1492729085263099246/20.jpg")
+                imgSaver.save_image_dir_deg(inferencer, added_path, "bad")
                 if idx > save_image_num:
                     break
-            if self.cfg.backbone=="ResNet34_deg":
-                imgSaver.save_image_dir_deg(inferencer.model, inferencer.model2, filepaths, save_image_num)
-            # else:
-                # imgSaver.save_image_dir(filepaths)
         else:
-            evaluator = EDeval()
-            # evaluator.save_JSON(lane_tensor, path_list)
-            bench = LaneEval()
-            eval_cfg = Eval_Cfg()
-            print("BENCH1")
             acc, fp, fn = 0,0,0
             for lane, path in zip(lane_tensor, path_list):
-                # print("LANE {}".format(type(lane)))
-                # print("LANE {}".format(lane))
-                # print("PATH {}".format(path))
                 if len(lane)>5:
                     lane = lane[0:5]
                 a, p, n = bench.bench_one_instance(lane, path,"./evaluator/gt.json")
-            
                 acc += a
                 fp += p
                 fn += n
                 print("{} {} {}".format(a, p, n))
+                file_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path)
+                imgSaver.save_image_dir_deg(inferencer, file_path, "SOME")
             acc /=len(lane_tensor)
             fp /=len(lane_tensor)
             fn /=len(lane_tensor)
             print("LANE : {} ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}".format(len(lane_tensor), acc,fp,fn))
+            
 
-            # eval_cfg.sort_list()
-
-            for path in path_list:
-                filepaths.append(os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path))
-            imgSaver.save_image_dir_deg(inferencer.model, inferencer.model2, filepaths)
+            
+            # for path in path_list:
+            #     filepaths.append(os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path))
         return
+    
     def getModel(self):
         model = None
         if self.cfg.backbone == "VGG16":
@@ -207,7 +198,21 @@ class EngineTheRun():
         elif self.cfg.backbone == "ResNet34_seg":
             model = ResNet34_seg()
             summary(model, (3, 368, 640),device='cpu')
+        elif self.cfg.backbone == "ResNet34_seg_SCNN":
+            model = ResNet34_seg_SCNN()
+            summary(model, (3, 368, 640),device='cpu')
+        elif self.cfg.backbone == "ResNet34_delta_SCNN":
+            model = ResNet34_delta_SCNN()
+            summary(model, (3, 368, 640),device='cpu')
+        elif self.cfg.backbone == "ResNet18_delta_SCNN":
+            model = ResNet18_delta_SCNN()
+            summary(model, (3, 368, 640),device='cpu')
+        elif self.cfg.backbone == "ResNet18_seg_SCNN":
+            model = ResNet18_seg_SCNN()
+            summary(model, (3, 368, 640),device='cpu')
         elif self.cfg.backbone == "ResNet34_deg":
             model = ResNet34_delta()
             summary(model, (3, 368, 640),device='cpu')
+        else:
+            print("[Engine] Model Not Defined!!!")
         return model

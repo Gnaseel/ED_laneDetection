@@ -3,6 +3,9 @@ import json
 
 class EDeval():
     def __init__(self):
+        self.eval_list = []
+        self.bad_path_list = []
+        self.good_path_list = []
         return
     def getH_sample_all(self, anchor_tensor, h_start, h_end, h_interval):
         lane_tensor=[]
@@ -82,7 +85,7 @@ class EDeval():
         for idx in range(len(lane_list)):
             output = dict()
             output["h_samples"]=[i for i in range(160,720,10)]
-            output["lanes"] = [lane for lane in lane_list[idx]]
+            output["lanes"] = [lane for lane in lane_list[idx, 0:5]]
             output["run_time"] = 1
             output["raw_file"]=path_list[idx]
             output_str = json.dumps(output)
@@ -103,4 +106,7 @@ class EDeval():
         # print(output_list[1])
         # for i in range(12):
         #     print("{} Lane : {}".format(i, lane_checker[i]))
+        return
+    def sort_list(self):
+        self.eval_list.sort(key=lambda data : data.acc)
         return

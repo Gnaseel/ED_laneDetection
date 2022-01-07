@@ -86,30 +86,8 @@ class ResidualBlock(torch.nn.Module):
             )
             return a
     def forward(self, x):
-#         print(x.shape)
-#         print("dim_down is {}".format(self.dim_down))
-#         print("scale_down is {}".format(self.scale_down))
         iden = self.insert_block(x)
-#         print(iden.shape)
         x = self.block(x)
-#         print(x.shape)
         x += iden
         x = self.relu(x)
         return x
-    # def forward(self, x):
-    #     out = iden = x 
-    #     for i in range(self.repeat):
-    #         iden = out
-    #         if i == 0 and self.dim_changed:
-    #             out = self.chanel_dim_down(out)
-    #             out = self.relu(out)
-    #             out = self.chanel_same(out)
-    #         else:
-    #             out = self.chanel_same(out)
-    #             out = self.relu(out)
-    #             out = self.chanel_same(out)
-    #             out += iden
-            
-    #         out = self.relu(out)
-        
-    #     return out

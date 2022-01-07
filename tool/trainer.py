@@ -85,13 +85,15 @@ class Trainer():
 
         self.logger.setLogger(self.device)
         print('학습을 진행하는 기기:',self.device)
+        print('Segmentation Train')
+
 
         # --------------------- Load Dataset -------------------------------------------
         
         data_loader = self.getDataLoader(self.device)
 
         # --------------------- Train -------------------------------------------
-        wt = [1,1]
+        wt = [1,20]
         self.setWeight(wt)
         print("WT = {}".format(wt))
         print("WT = {}".format(self.weight))
@@ -121,9 +123,9 @@ class Trainer():
                 #---------------------------- Logging ----------------------------------------
                 self.dataUpdate(epoch, index)
                 self.logger.printTrainingLog(self)
-            if epoch % 10 == 0:
-                print("LOG!!")
-                self.logger.logging(self)
+            # if epoch % 10 == 0:
+            #     print("LOG!!")
+            #     self.logger.logging(self)
 
         print("Train Finished.")
 
@@ -229,11 +231,12 @@ class Trainer():
                 optimizer.zero_grad()  # gradient init
                 target2 = self.getTarget_onlyLane(target.detach())
                 delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
+                # delta_right_list, delta_right_exist_list = d.getLaneExistHeight(target2)
                 delta_up_list, delta_up_exist_list = d.getDeltaVerticalMap(target2)
 
                 #---------------------------- Get Loss ----------------------------------------
                 output = self.model(data)
-               
+                # print("OUtput Shape {}".format(output.shape))
                 loss = []
                 totalLoss=0
                 for idx, lane_tensor in enumerate(delta_right_exist_list):
@@ -258,7 +261,7 @@ class Trainer():
                 # print("TOTAL {}".format(end-start))
                 # print("ADDED {}".format(end2-start2))
 
-            if epoch % 3 == 0:
+            if epoch % 10 == 0:
                 print("LOG!!")
                 self.logger.logging(self)
 

@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 import torch
-
+import time
 class delta_distance():
     def __init__(self):
         self.target_tensor=None
@@ -83,7 +83,11 @@ class delta_distance():
         # print(batched_width_list)
         # print(batched_exist_list)
         return batched_dist_tensor, batched_exist_list
+
+    # batch_image = batch * height * width  3D tensor
     def getDeltaRightMap(self, batch_image):
+        start_time = time.time()
+        print("SHAPE {}".format(batch_image.shape))
         # reTensor = torch.FloatTensor([i for i in range(7 *6* 5)]).reshape(7, 6, 5)
         # print("----------In Delta Map--------")
         dim1 = batch_image.shape[0]
@@ -94,16 +98,8 @@ class delta_distance():
         batched_exist_list=[]
         for image in batch_image:
             segmented_point=(image==1).nonzero().to(self.device)
-            # segmented_point -> (N*coord) 2D tensor ... dim1 = number of segmented points, dim2 = point coord
+            # segmented_point -> (N*coordXY) 2D tensor ... dim1 = number of segmented points, dim2 = point coord
 
-            # print("image*--------------------")
-            # print(image)
-            # print("Lane*--------------------")
-            # print(segmented_point)
-            # segmented_point=(image==1)
-            # print("Lane*--------------------")
-            # print(segmented_point)
-            
             width_list=[]
             exist_list=[]
             for idx, height in enumerate(image):
@@ -115,16 +111,9 @@ class delta_distance():
                     indi = torch.zeros(height.shape[0]).to(self.device)
                 else:
                     laneCandi = torch.squeeze(laneCandi)
-                    # print(laneCandi)
-                    # print("Idx    Shape : {}".format(laneCandi.shape))
-                    # print("Matrix Shape : {}".format(segmented_point.shape))
                     abscissa = torch.unsqueeze(torch.index_select(segmented_point, 0, laneCandi)[:,1],1)
                     # abscissa -> 2D tensor (N * abscissa), only abscissa of candidate
-                    # print(abscissa)
-
                     dist_tensor = abscissa - torch.arange(height.shape[0]* abscissa.shape[0]).reshape(abscissa.shape[0], height.shape[0]).to(self.device)%height.shape[0]
-                    # print(dist_tensor.shape)
-                    # print(dist_tensor)
                     # dist_tensor -> 2D tensor (N * width), distance from each candidate
                     exist_list.append(idx)
                     indi = torch.min(torch.abs(dist_tensor),0).values
@@ -141,8 +130,24 @@ class delta_distance():
         batched_dist_tensor = torch.stack(batched_width_list)
         # batched_exist_tensor = torch.stack(batched_exist_list)
         # print(batched_width_list)
-        # print(batched_exist_list)
+        print("Batch Line")
+        for i in batched_exist_list:
+            print(i.shape)
+        end_time = time.time()
+        print("Time = {}".format(end_time-start_time))
+
         return batched_dist_tensor, batched_exist_list
+
+    def getLaneExistHeight(self, batch_image):
+        start_time = time.time()
+        print("SHAPE {}".format(batch_image.shape))
+
+
+        segmented_point3=torch.max(batch_image, dim = 2)
+        # segmented_point3 = torch.where()
+        print(segmented_point3.values[0])
+        print(segmented_point3.values.shape)
+        return segmented_point3.values
 
     def getDeltaVerticalMap(self, batch_image):
         # reTensor = torch.FloatTensor([i for i in range(7 *6* 5)]).reshape(7, 6, 5)
@@ -151,16 +156,6 @@ class delta_distance():
         batched_exist_list=[]
         for image in batch_image:
             segmented_point=(image==1).nonzero().to(self.device)
-            # segmented_point -> (N*coord) 2D tensor ... dim1 = number of segmented points, dim2 = point coord
-
-            # print("image*--------------------")
-            # print(image)
-            # print("Lane*--------------------")
-            # print(segmented_point)
-            # segmented_point=(image==1)
-            # print("Lane*--------------------")
-            # print(segmented_point)
-            
             width_list=[]
             exist_list=[]
             for idx, width in enumerate(torch.transpose(image,0,1)):
@@ -193,9 +188,6 @@ class delta_distance():
 
             new_lane_img = torch.stack(width_list)
             new_exist_img = torch.Tensor(exist_list).type(torch.int64)
-            # print(exist_list)
-            # print(new_exist_img)
-            # return
             batched_width_list.append(new_lane_img)
             batched_exist_list.append(new_exist_img)
                 
@@ -207,7 +199,8 @@ class delta_distance():
         return torch.transpose(batched_dist_tensor,1,2), batched_exist_list
         return batched_dist_tensor, batched_exist_list
 
-    
+    def transform2deltaLoss(self, height_list, tensor)    :
+        return
 class delta_degree():
 
     def __init__(self):
@@ -225,13 +218,8 @@ class delta_degree():
             segmented_point=(image==1).nonzero().to(self.device)
             # segmented_point -> (N*coord) 2D tensor ... dim1 = number of segmented points, dim2 = point coord
 
-            # print("image*--------------------")
-            # print(image)
             print("Lane*--------------------")
             print(segmented_point)
-            # segmented_point=(image==1)
-            # print("Lane*--------------------")
-            # print(segmented_point)
             
             width_list=[]
             exist_list=[]
@@ -241,8 +229,6 @@ class delta_degree():
             for idx in range_list:
                 print("IDX {}".format(idx))
 
-
-            # torch.index_select(image, 0, laneCandi)[:,1]
             return
             for idx, height in enumerate(image):
                 laneCandi=(segmented_point[:,0]==idx).nonzero().to(self.device)
@@ -275,11 +261,8 @@ class delta_degree():
             # return
             batched_width_list.append(new_lane_img)
             batched_exist_list.append(new_exist_img)
-                
+
         batched_dist_tensor = torch.stack(batched_width_list)
-        # batched_exist_tensor = torch.stack(batched_exist_list)
-        # print(batched_width_list)
-        # print(batched_exist_list)
         return batched_dist_tensor, batched_exist_list
     
 def test1():
