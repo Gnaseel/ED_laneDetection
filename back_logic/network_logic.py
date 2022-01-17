@@ -154,7 +154,7 @@ class Network_Logic:
             print("     Tensor to lane Time = {}".format(get_gt_lane - get_pre_lane))
 
 
-        return score
+        return score.lane_list
 
     def getKeypoint(self, out_heat, height_start=90, height_end=330, threshold = -0.5, reverse = False ):
         key_list = []

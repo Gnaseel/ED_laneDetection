@@ -276,9 +276,10 @@ class ImgSaver:
                 for point in lane:
                     output_right_circle_image = cv2.circle(output_right_circle_image, (point[1], point[0]), 5, myColor.color_list[idx if idx <=10 else 10], -1)
             myList = lane_data.convert_tuSimple()
-            print(myList)
-            print("Lane Num {}".format(lane_data.lanes_num))   
-            print("Lane Idx Num {}".format(lane_data.lane_idx))   
+            # print(myList)
+            # print("Lane Num {}".format(lane_data.lanes_num))   
+            # print("Lane Idx Num {}".format(lane_data.lane_idx))   
+            
             # print("Key List {}".format(key_list))   
             # print("Key Up List {}".format(key_up_list))   
 
@@ -426,13 +427,17 @@ class ImgSaver:
 
             gt_path = "./evaluator/gt.json"
             img_path = os.path.join(*path.split(os.sep)[-4:])    
-            print("IMG PATH = {}".format(img_path))            
-            print("dir_name PATH = {}".format(dir_name))            
+
+            # PATH : /home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/clips/0601/1494453723505661848/20.jpg
+            # IMG PATH = clips/0601/1494453723505661848/20.jpg
+            # print("PATH : {}".format(path))
+            # print("IMG PATH = {}".format(img_path))            
+            # print("dir_name PATH = {}".format(dir_name))            
             ev = EV.LaneEval.bench_one_instance(lane_list, img_path, gt_path)
-            print("EV = {}".format(ev))
+            # print("EV = {}".format(ev))
             raw_img = cv2.putText(raw_img, str(ev[0])[0:5], (30, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
  
-            dir_name = os.path.join(self.image_save_path, "check", dir_name)
+            dir_name = os.path.join(self.image_save_path, "check_" + self.cfg.model_path.split(os.sep)[-1], dir_name)
             os.makedirs(dir_name, exist_ok = True)
             fileName = "raw"
             fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(fileName)+".jpg")
@@ -440,16 +445,18 @@ class ImgSaver:
             gtfileName = "ground_truth"
             fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(gtfileName)+".jpg")
             cv2.imwrite(fir_dir, gt_img*50)
-
             return
+            
         def plot_lane_img(self, img, lane_list):
+            # print(type(lane_list))
+            # print(lane_list)
             raw_img = img
             for idx, lane in enumerate(lane_list):
                 if len(lane) <=2:
                     continue
                 for idx2, height in enumerate(range(160, 710+1, 10)):
                     if lane[idx2] > 0:
-                        raw_img = cv2.circle(raw_img, (lane[idx2],height), 5, myColor.color_list[idx if idx <=10 else 10], -1)
+                        raw_img = cv2.circle(raw_img, (int(lane[idx2]),int(height)), 5, myColor.color_list[idx if idx <=10 else 10], -1)
             return raw_img
         def save_image_delta(self, image, output_image, fileName, delta_height=10, delta_threshold = 50):
             # return

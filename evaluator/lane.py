@@ -105,7 +105,7 @@ class LaneEval(object):
         # for l  in pred_lanes:
         #     print(l)
 
-        f = open("Score.txt",'w')
+        # f = open("Score.txt",'w')
         lane_num=0
         y_samples = gt['h_samples']
 
@@ -166,7 +166,7 @@ class LaneEval(object):
                 ed = Eval_data()
                 a, p, n = LaneEval.bench(pred_lanes, gt_lanes, y_samples, run_time)
                 f.write("LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(pred_lanes), len(gt_lanes), a,p,n, pred['raw_file']))
-
+                # print("[File Write]LANE : {} / {}  ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}     FILENAME {} \n".format(len(pred_lanes), len(gt_lanes), a,p,n, pred['raw_file']))
                 ed.acc = a
                 ed.gt_lane = len(gt_lanes)
                 ed.pred_lane = len(pred_lanes)

@@ -131,8 +131,6 @@ class PostProcess_Logic:
 
     def post_process(self, lane_list):
         post_process_start = time.time()
-        print("LEN OF {}".format(len(lane_list)))
-        print("LEN OF {}".format(len(lane_list)))
         new_lane_list = self.mergeLane(lane_list)
         re_lane=[]
         for idx, lane in enumerate(new_lane_list):

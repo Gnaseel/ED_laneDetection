@@ -3,18 +3,21 @@ import numpy as np
 import time
 class Lane:
     def __init__(self):
-        self.lane_list = np.zeros((30, 30, 2), dtype=np.int)
-        self.lane_idx = [0 for i in range(30)]
+        self.candi_num= 30
+        self.height_num = 60
+        self.lane_list = np.zeros((self.candi_num, self.height_num, 2), dtype=np.int)
+        self.lane_idx = [0 for i in range(self.candi_num)]
         self.lanes_num=0
         return
     def addCount(self, idx):
-        if idx >= 30:
+        if idx >= self.candi_num:
             print("IDX is Too BIG!!!")
             return
         self.lane_idx[idx] +=1
         return
     def addKey(self, up_lane, idx):
         if up_lane[0]!=0:
+            # lane_list = [height(idx), lane_idx, 2], up_lane = [height, width]
             self.lane_list[idx, self.lane_idx[idx]] = up_lane 
             self.addCount(idx)
         else:
@@ -44,9 +47,9 @@ class Lane:
         for lane_idx in range(self.lanes_num):
             add_lane=[]
             height_start = self.lane_list[lane_idx,0,0]
-            print("Height Start = {}".format(height_start))
+            # print("Height Start = {}".format(height_start))
             start_idx = int((360- height_start)/10)
-            print("start_idx = {}".format(start_idx))
+            # print("start_idx = {}".format(start_idx))
             for i in range(start_idx):
                 add_lane.append(-2)
             for height_idx in range(self.lane_idx[lane_idx]):
@@ -65,37 +68,27 @@ class LaneBuilder:
 
     # Key = [height, width], delta_image = 348*640 delta_up_image
     # Return = New key of (height-10)
-    def getUpLane(self, key, delta_image):
+    def getUpLane(self, key, delta_image, height_delta=10, window_width = 40):
         height = key[0]
         width = key[1]
         min_abs=100
         new_10_point = np.array([0,0], dtype=np.int)
-        for point in range(width-40, width+41, 2):
+        for point in range(width-window_width, width+window_width+1, 2):
             # print("     Point {}".format(point))
-            if  0<point and point < delta_image.shape[1] and 7 < delta_image[height,point] and delta_image[height,point] < 13:
+            if  0<point and point < delta_image.shape[1] and height_delta*0.7 < delta_image[height,point] and delta_image[height,point] < height_delta*1.3:
                 # print("HERE")
                 # print("!! {} {}".format(point, delta_right_image.shape[1]))
-                direction = -1 if delta_image[height-5,point] > delta_image[height+5,point] else 1
+                direction = -1 if delta_image[height-2,point] > delta_image[height+2,point] else 1
                 if direction == -1: # Go Down
                     continue
                 resi = abs(width-point)
                 if resi < min_abs:
-                    new_10_start_point = (width, height)
-                    new_10_point = [height-10*direction, point]
+                    new_10_point = [height-height_delta*direction, point]
                     min_abs = resi
-        if min_abs < 99:
-            temp_up = new_10_point
         return new_10_point
-            # point_up_list.append([new_10_start_point[0], new_10_point[0]])
 
-        return
     def getKeyfromDelta(self, output_image, delta_threshold = 30):
         delta_threshold_min=3
-        # return
-        # output_image = output_image.cpu().detach().numpy()
-        # --------------------------Save segmented map
-    
-        # output_image = self.inference_np2np_instance(image, model)
 
         delta_right_image = output_image[:,:,0]
         delta_up_image = output_image[:,:,1]
@@ -104,10 +97,9 @@ class LaneBuilder:
         lane_in_height=[0 for i in range(6)]
         key_list=[]
         key_up_list=[]
-        for i in range(130, delta_right_image.shape[0], 10):
+        for i in range(130, delta_right_image.shape[0], 5):
             width_list=[]
-            for j in range(10, delta_right_image.shape[1], 10):
-                startPoint = (j, i)
+            for j in range(10, delta_right_image.shape[1], 5):
                 if j+11 > delta_right_image.shape[1] or j-11 < 0:
                     continue
                 if  delta_threshold_min < delta_right_image[i,j] and delta_right_image[i,j] < delta_threshold:
@@ -159,6 +151,7 @@ class LaneBuilder:
         print("Lane Num {}".format(lane_data.lanes_num))   
         print("Lane Idx Num {}".format(lane_data.lane_idx))   
         return myList
+    
     def buildLane(self, key_list, key_up_list, delta_up_image):
         key_list.reverse()
         key_up_list.reverse()

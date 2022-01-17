@@ -87,7 +87,7 @@ class delta_distance():
     # batch_image = batch * height * width  3D tensor
     def getDeltaRightMap(self, batch_image):
         start_time = time.time()
-        print("SHAPE {}".format(batch_image.shape))
+        # print("SHAPE {}".format(batch_image.shape))
         # reTensor = torch.FloatTensor([i for i in range(7 *6* 5)]).reshape(7, 6, 5)
         # print("----------In Delta Map--------")
         dim1 = batch_image.shape[0]
@@ -130,11 +130,11 @@ class delta_distance():
         batched_dist_tensor = torch.stack(batched_width_list)
         # batched_exist_tensor = torch.stack(batched_exist_list)
         # print(batched_width_list)
-        print("Batch Line")
-        for i in batched_exist_list:
-            print(i.shape)
+        # print("Batch Line")
+        # for i in batched_exist_list:
+        #     print(i.shape)
         end_time = time.time()
-        print("Time = {}".format(end_time-start_time))
+        # print("Time = {}".format(end_time-start_time))
 
         return batched_dist_tensor, batched_exist_list
 
@@ -195,7 +195,6 @@ class delta_distance():
         # batched_exist_tensor = torch.stack(batched_exist_list)
         # print(batched_width_list)
         # print(batched_exist_list)
-        # print("SHAPE {}".format(batched_dist_tensor.shape))
         return torch.transpose(batched_dist_tensor,1,2), batched_exist_list
         return batched_dist_tensor, batched_exist_list
 

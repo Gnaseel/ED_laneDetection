@@ -34,6 +34,8 @@ class Trainer():
         self.device='cpu'
         self.weight=None
 
+        # self.datasets_path=[0 for i in range(0,100)]
+        self.datasets_path=[]
     def train_lane_lin(self):
         # --------------------- Path Setting -------------------------------------------
         self.logger.setLogger(self.device)
@@ -42,7 +44,7 @@ class Trainer():
 
         # --------------------- Load Dataset -------------------------------------------
         
-        data_loader = self.getDataLoader(self.device)
+        data_loader = self.getDataLoader_from_np(self.device)
 
         # --------------------- Train -------------------------------------------
         wt = [1,1,1,1,1,1,1]
@@ -90,10 +92,10 @@ class Trainer():
 
         # --------------------- Load Dataset -------------------------------------------
         
-        data_loader = self.getDataLoader(self.device)
+        # data_loader = self.getDataLoader_from_np(self.device)
 
         # --------------------- Train -------------------------------------------
-        wt = [1,20]
+        wt = [1,40]
         self.setWeight(wt)
         print("WT = {}".format(wt))
         print("WT = {}".format(self.weight))
@@ -103,40 +105,46 @@ class Trainer():
         self.logger.writeTrainingHead(self)
 
         criterion = torch.nn.NLLLoss(weight=self.weight, reduction="mean").to(self.device)
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
 
         self.model = self.model.to(self.device)
         self.model.train()
 
         for epoch in range(70000):
-            for index, (data, target) in enumerate(data_loader):
-                optimizer.zero_grad()  # gradient init
-                # print(target.shape)
-                target2 = self.getTarget_single(target.detach())
+            for data_set in self.datasets_path:
+                data_loader = self.getDataLoader_from_np(self.device, data_set)
+                print("DATASET IDX = {}".format(data_set))
 
-                #---------------------------- Get Loss ----------------------------------------
-                
-                loss = criterion(F.log_softmax(self.model(data), dim=1), target2.long())
-                loss.backward()  # backProp
-                optimizer.step()
-                self.loss = loss.item()
-                #---------------------------- Logging ----------------------------------------
-                self.dataUpdate(epoch, index)
-                self.logger.printTrainingLog(self)
+                for index, (data, target) in enumerate(data_loader):
+                    optimizer.zero_grad()  # gradient init
+                    # print(target.shape)
+                    target2 = self.getTarget_single(target.detach())
+
+                    #---------------------------- Get Loss ----------------------------------------
+
+                    loss = criterion(F.log_softmax(self.model(data), dim=1), target2.long())
+                    loss.backward()  # backProp
+                    optimizer.step()
+                    self.loss = loss.item()
+                    #---------------------------- Logging ----------------------------------------
+                    self.dataUpdate(epoch, index)
+                    # self.logger.printTrainingLog(self)
+            if True:
             # if epoch % 10 == 0:
-            #     print("LOG!!")
-            #     self.logger.logging(self)
+                print("LOG!!")
+                self.logger.logging(self)
 
         print("Train Finished.")
 
         return
+    
     def train_delta(self):
         # --------------------- Path Setting -------------------------------------------
         self.logger.setLogger(self.device)
         print('학습을 진행하는 기기:',self.device)
 
         # --------------------- Load Dataset -------------------------------------------
-        data_loader = self.getDataLoader(self.device)
+        data_loader = self.getDataLoader_from_np(self.device)
 
         # --------------------- Train -------------------------------------------
         wt = [1]
@@ -205,7 +213,7 @@ class Trainer():
         print('학습을 진행하는 기기:',self.device)
         print("Model = train_deg")
         # --------------------- Load Dataset -------------------------------------------
-        data_loader = self.getDataLoader(self.device)
+        # data_loader = self.getDataLoader_from_np(self.device)
 
         # --------------------- Train -------------------------------------------
         wt = [1]
@@ -226,48 +234,53 @@ class Trainer():
         d.setDevice(self.device)
 
         for epoch in range(70000):
-            for index, (data, target) in enumerate(data_loader):
-                # start = time.time()
-                optimizer.zero_grad()  # gradient init
-                target2 = self.getTarget_onlyLane(target.detach())
-                delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
-                # delta_right_list, delta_right_exist_list = d.getLaneExistHeight(target2)
-                delta_up_list, delta_up_exist_list = d.getDeltaVerticalMap(target2)
+            for data_set in self.datasets_path:
+                data_loader = self.getDataLoader_from_np(self.device, data_set)
+                print("DATASET IDX = {}".format(data_set))
+                for index, (data, target) in enumerate(data_loader):
+                    # start = time.time()
+                    optimizer.zero_grad()  # gradient init
+                    target2 = self.getTarget_onlyLane(target.detach())
+                    delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
+                    # delta_right_list, delta_right_exist_list = d.getLaneExistHeight(target2)
+                    delta_up_list, delta_up_exist_list = d.getDeltaVerticalMap(target2)
 
-                #---------------------------- Get Loss ----------------------------------------
-                output = self.model(data)
-                # print("OUtput Shape {}".format(output.shape))
-                loss = []
-                totalLoss=0
-                for idx, lane_tensor in enumerate(delta_right_exist_list):
-                    selected_output = torch.index_select(output[idx,0],0, lane_tensor.to(self.device))
-                    selected_target = torch.index_select(delta_right_list[idx],0, lane_tensor.to(self.device))
-                    loss.append(criterion(selected_output, selected_target.float()))
-                    totalLoss+=criterion(selected_output, selected_target.float())
-                    
-                for idx, lane_tensor in enumerate(delta_up_exist_list):
-                    selected_output = torch.index_select(output[idx,1],1, lane_tensor.to(self.device))
-                    selected_target = torch.index_select(delta_up_list[idx],1, lane_tensor.to(self.device))
-                    loss.append(criterion(selected_output, selected_target.float()))
-                    totalLoss+=criterion(selected_output, selected_target.float())
+                    #---------------------------- Get Loss ----------------------------------------
+                    output = self.model(data)
+                    # print("OUtput Shape {}".format(output.shape))
+                    loss = []
+                    totalLoss=0
+                    for idx, lane_tensor in enumerate(delta_right_exist_list):
+                        selected_output = torch.index_select(output[idx,0],0, lane_tensor.to(self.device))
+                        selected_target = torch.index_select(delta_right_list[idx],0, lane_tensor.to(self.device))
+                        loss.append(criterion(selected_output, selected_target.float()))
+                        totalLoss+=criterion(selected_output, selected_target.float())
 
-                totalLoss.backward()  # backProp
-                optimizer.step()
-                self.loss = totalLoss.item()
-                #---------------------------- Logging ----------------------------------------
-                self.dataUpdate(epoch, index)
-                self.logger.printTrainingLog(self)
-                # end = time.time()
-                # print("TOTAL {}".format(end-start))
-                # print("ADDED {}".format(end2-start2))
+                    for idx, lane_tensor in enumerate(delta_up_exist_list):
+                        selected_output = torch.index_select(output[idx,1],1, lane_tensor.to(self.device))
+                        selected_target = torch.index_select(delta_up_list[idx],1, lane_tensor.to(self.device))
+                        loss.append(criterion(selected_output, selected_target.float()))
+                        totalLoss+=criterion(selected_output, selected_target.float())
 
-            if epoch % 10 == 0:
+                    totalLoss.backward()  # backProp
+                    optimizer.step()
+                    self.loss = totalLoss.item()
+                    #---------------------------- Logging ----------------------------------------
+                    self.dataUpdate(epoch, index)
+                    # self.logger.printTrainingLog(self)
+                    # end = time.time()
+                    # print("TOTAL {}".format(end-start))
+                    # print("ADDED {}".format(end2-start2))
+            if True:
+                # if epoch % 10 == 0:
                 print("LOG!!")
                 self.logger.logging(self)
 
         print("Train Finished.")
 
         return
+
+
     def getTarget_ex(self, target):
         arr = target.detach().numpy()
         target_resize = np.array([])
@@ -296,16 +309,20 @@ class Trainer():
         self.epoch = epoch
         self.index = index
         return
-
-    def getDataLoader(self, device):
-
-        x_train, x_test, y_train, y_test  = np.load( self.dataset_path , allow_pickle=True)
+    
+#     def getDataLoader_from_path(self, path):
+#         batch_size=8
+#         data_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
+# #         print(x_train.requires_grad)
+# #         print(y_train.requires_grad)
+#         return data_loader
+#         return
+    def getDataLoader_from_np(self, device, path):
+        print("DEVICE {}    PATH {}".format(device, path))
+        x_train, x_test, y_train, y_test  = np.load( path , allow_pickle=True)
         x_train = torch.from_numpy(x_train).float().to(device)
-#         x_test = torch.from_numpy(x_test).float().to(device)
         y_train = torch.from_numpy(y_train).float().to(device)
-#         y_test = torch.from_numpy(y_test).float().to(device)
         train_dataset = TensorDataset(x_train.permute(0,3,1,2), y_train)
-#         test_dataset = TensorDataset(x_test.permute(0,3,1,2), y_test)
         if self.cfg.backbone=="ResNet50":
             batch_size=4
         else:
@@ -332,7 +349,7 @@ class Trainer():
 
         # --------------------- Load Dataset -------------------------------------------
        
-        data_loader = self.getDataLoader()
+        data_loader = self.getDataLoader_from_np()
 #         self.getModel()
 
         # print(self.model)
