@@ -26,9 +26,14 @@ class Logger:
         f.write("loss of {} epoch {} index : {}\n".format(trainer.epoch, trainer.index, trainer.loss))
         f.close()
         return
+    def saveTxt(self, str):
+        f=open(self.log_path+"/train_log.txt",'a')
+        f.write("{}\n".format(str))
+        f.close()
+        return
     def printTrainingLog(self, trainer):
         print("IDX {}".format(trainer.index))
-        print("loss of {} epoch {} index : {}".format(trainer.epoch, trainer.index, trainer.loss))
+        print("epoch {} index : {}           loss : {} ".format(trainer.epoch, trainer.index, trainer.loss))
     
     def logging(self, trainer):
         self.saveTrainingLog(trainer)

@@ -226,19 +226,22 @@ class Trainer():
         self.logger.writeTrainingHead(self)
 
         criterion = torch.nn.L1Loss(reduction="mean").to(self.device)
+        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 2000)
+
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
 
         self.model = self.model.to(self.device)
         self.model.train()
         d=delta_distance()
         d.setDevice(self.device)
-
+        torch.autograd.set_detect_anomaly(True)
         for epoch in range(70000):
+            epoch_start = time.time()
+
             for data_set in self.datasets_path:
                 data_loader = self.getDataLoader_from_np(self.device, data_set)
                 print("DATASET IDX = {}".format(data_set))
                 for index, (data, target) in enumerate(data_loader):
-                    # start = time.time()
                     optimizer.zero_grad()  # gradient init
                     target2 = self.getTarget_onlyLane(target.detach())
                     delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
@@ -248,33 +251,45 @@ class Trainer():
                     #---------------------------- Get Loss ----------------------------------------
                     output = self.model(data)
                     # print("OUtput Shape {}".format(output.shape))
-                    loss = []
-                    totalLoss=0
+                    # loss = []
+                    totalLoss=1e-9
                     for idx, lane_tensor in enumerate(delta_right_exist_list):
+                        if len(lane_tensor)==0:
+                            continue
                         selected_output = torch.index_select(output[idx,0],0, lane_tensor.to(self.device))
                         selected_target = torch.index_select(delta_right_list[idx],0, lane_tensor.to(self.device))
-                        loss.append(criterion(selected_output, selected_target.float()))
+                        # loss.append(criterion(selected_output, selected_target.float()))
                         totalLoss+=criterion(selected_output, selected_target.float())
+                        # print(criterion(selected_output, selected_target.float()))
+                        # print(lane_tensor)
 
                     for idx, lane_tensor in enumerate(delta_up_exist_list):
+                        if len(lane_tensor)==0:
+                            continue
                         selected_output = torch.index_select(output[idx,1],1, lane_tensor.to(self.device))
                         selected_target = torch.index_select(delta_up_list[idx],1, lane_tensor.to(self.device))
-                        loss.append(criterion(selected_output, selected_target.float()))
+                        # loss.append(criterion(selected_output, selected_target.float()))
                         totalLoss+=criterion(selected_output, selected_target.float())
+                        # print(criterion(selected_output, selected_target.float()))
 
+                    # print(totalLoss)
                     totalLoss.backward()  # backProp
                     optimizer.step()
                     self.loss = totalLoss.item()
                     #---------------------------- Logging ----------------------------------------
+
                     self.dataUpdate(epoch, index)
-                    # self.logger.printTrainingLog(self)
+                    if index%20==0:
+                        self.logger.printTrainingLog(self)
                     # end = time.time()
                     # print("TOTAL {}".format(end-start))
                     # print("ADDED {}".format(end2-start2))
             if True:
                 # if epoch % 10 == 0:
-                print("LOG!!")
+                time_str = "LOG!!  Time = {}".format(time.time() - epoch_start)
+                print(time_str)
                 self.logger.logging(self)
+                self.logger.saveTxt(time_str)
 
         print("Train Finished.")
 

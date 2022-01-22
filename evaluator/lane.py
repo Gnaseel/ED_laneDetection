@@ -95,6 +95,7 @@ class LaneEval(object):
         run_time = 1
 
         if raw_file not in gts:
+            return None
             raise Exception('Some raw_file from your predictions do not exist in the test tasks.')
         gt = gts[raw_file]
         gt_lanes = gt['lanes']

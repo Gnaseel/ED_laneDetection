@@ -75,7 +75,7 @@ class ImgSaver:
                 cv2.imwrite(os.path.join(softmax_dir_name, "_{}.jpg".format(idx)), seg_image*30)
             return
 
-        def save_image_deg(self, image, out_heat, score, img_path, fileName, delta_height=10, delta_threshold = 50):
+        def save_image_deg(self, image, out_heat, lane_list, img_path, fileName, delta_height=10, delta_threshold = 50):
 
             # --------------------------Save segmented map
             delta_folder_name = "delta"
@@ -89,10 +89,7 @@ class ImgSaver:
             heat_key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat_key.jpg")
             lane_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_lane.jpg")
 
-            gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
             # gt_path = os.path.join(img_path)
-            print("GT PAHT {}".format(gt_path))
-            gt_img = cv2.imread(gt_path)*30
             # seged_image = cv2.resize(out_heat.cpu().detach().numpy()[:,:]*50, (1280,720))
             out_heat = torch.unsqueeze(out_heat, dim=2)
             print(image.shape)
@@ -112,7 +109,7 @@ class ImgSaver:
             key_list = nl.getKeypoint(out_heat)
             for idx, lane in enumerate(key_list):
                 output_key_image = cv2.circle(output_key_image, (int(lane[1]*1280.0/640.0),int(lane[0]*720.0/368.0)), 5, myColor.color_list[0], -1)
-            for idx, lane in enumerate(score.lane_list):
+            for idx, lane in enumerate(lane_list):
                 if len(lane) <=2:
                     continue
                 for idx2, height in enumerate(range(160, 710+1, 10)):
@@ -125,22 +122,26 @@ class ImgSaver:
                         output_lane_image = cv2.circle(output_lane_image, (int(lane[idx2]),height), 5, myColor.color_list[idx], -1)
                     idx2+=1
                 idx+=1
-            gt_path = "./evaluator/gt.json"
-            # print("LANE {}".format(type(score.lane_list)))
-            print("LANE {}".format(score.lane_list))
-            # print("Image path {}".format(img_path))
-            # HAVE TO MOVE!!!!!!!!!!!!!!!!!
-            ev = EV.LaneEval.bench_one_instance(score.lane_list, img_path, gt_path)
+            # print("LANE {}".format(lane_list))
+            ev = EV.LaneEval.bench_one_instance(lane_list, img_path, "./evaluator/gt.json")
             cv2.imwrite(raw_fir_dir, image)
             cv2.imwrite(heat_key_fir_dir, output_key_image)
             cv2.imwrite(lane_fir_dir, output_lane_image)
-            print("SHAPE1 {}".format(out_heat.shape))
+            # print("SHAPE1 {}".format(out_heat.shape))
             # out_heat = torch.where(out_heat[:,:,1] > out_heat[:,:,0], 1, 0)
-            print("SHAPE2 {}".format(out_heat.shape))
+            # print("SHAPE2 {}".format(out_heat.shape))
             out_heat = out_heat.cpu().detach().numpy()
             cv2.imwrite(heat_fir_dir, (out_heat[:,:])*200)
-            gt_img = np.where(gt_img>0, 255, 0)
-            cv2.imwrite(gt_fir_dir, gt_img)
+            gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
+            if not os.path.isfile(gt_path):
+                gt_path = os.path.join(os.sep,*img_path.split(os.sep)[:-3], "laneseg_label", *img_path.split(os.sep)[-3:])[:-3]+"png"
+                print(gt_path)
+                # print("IGM PATH {}".format(os.path.join(gt_path, *img_path.split(os.sep)[-3:])[:-3]+"png"))
+            if os.path.isfile(gt_path):
+                gt_img = cv2.imread(gt_path)
+                print("GT PAHT {}".format(gt_path))
+                gt_img = np.where(gt_img>0, 255, 0)
+                cv2.imwrite(gt_fir_dir, gt_img)
             cv2.imwrite(seged_fir_dir, seged_image)
 
         def save_image_deg_basic(self, image, output_image, fileName, delta_height=10, delta_threshold = 30):
@@ -222,12 +223,12 @@ class ImgSaver:
                 buf=last=width_list[0]
                 point_list=[]
                 point_up_list=[]
-                print("width_list {}".format(width_list))
+                # print("width_list {}".format(width_list))
                 for idx in width_list[1:]:
                     if idx > last+40:
                         count +=1
                         point_list.append([i, int(buf/buf_count)])
-                        print("ADDED !! {}, {}".format(buf, buf_count))
+                        # print("ADDED !! {}, {}".format(buf, buf_count))
                         buf_count=1
                         buf=idx
                     else:
@@ -235,7 +236,7 @@ class ImgSaver:
                         buf+=idx
                     last = idx
                 if buf_count != 0:
-                    print("ADDED !! {}, {}".format(buf, buf_count))
+                    # print("ADDED !! {}, {}".format(buf, buf_count))
                     point_list.append([i, int(buf/buf_count)])
 
                 for idxs in point_list:
@@ -261,8 +262,8 @@ class ImgSaver:
                             # output_right_circle_image = cv2.circle(output_right_circle_image, new_10_point, 1, (0,255,255), -1)
 
                 # -------------- Get Lane Num --------------------
-                print("new_width_list {}".format(point_list))
-                print("Height {}, Count {}".format(i, count))
+                # print("new_width_list {}".format(point_list))
+                # print("Height {}, Count {}".format(i, count))
                 if count>5:
                     count=5
                 lane_in_height[count] +=1
@@ -271,7 +272,7 @@ class ImgSaver:
             key_up_list = key_up_list[1:]
             builder = LaneBuilder()
             lane_data = Lane()
-            lane_data = builder.buildLane(key_list, key_up_list, delta_up_image)
+            lane_data = builder.buildLane(key_list,  delta_up_image)
             for idx, lane in enumerate(lane_data.lane_list):
                 for point in lane:
                     output_right_circle_image = cv2.circle(output_right_circle_image, (point[1], point[0]), 5, myColor.color_list[idx if idx <=10 else 10], -1)

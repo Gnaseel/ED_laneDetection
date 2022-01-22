@@ -29,7 +29,10 @@ class Inference():
         self.gt_path = self.cfg.save_path
         self.model = None
         self.model2 = None
+        # tuSimple
         self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/test_set"
+        #cuLane
+        # self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/CULane"
         self.time_network = 0
         self.time_post_process= 0
 
@@ -46,12 +49,13 @@ class Inference():
 
         model_out_time = time.time()
 
-        out_heat = torch.where(output_tensor[1] > output_tensor[0], 1, 0)
+        out_heat = torch.where(output_tensor[1] > output_tensor[0], 1, 0).cpu().detach().numpy()
         # print(out_heat.shape)
         # print("NON ZERO {}".format(torch.count_nonzero(out_heat)))
         
         builder = LaneBuilder()
-        my_lane_list = builder.getKeyfromDelta(out_delta)
+        # my_lane_list = builder.getKeyfromDelta(out_delta)
+        my_lane_list = builder.getLanefromHeat(out_heat, out_delta)
         
         # NEW
 
@@ -104,24 +108,29 @@ class Inference():
   
                 input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
                 output_tensor = torch.squeeze(self.model2(input_tensor))
-                output_image2 = torch.where(output_tensor[1] > output_tensor[0], 1, 0)
+                heat_img = torch.where(output_tensor[1] > output_tensor[0], 1, 0)
 
-                score = Scoring()
-                score.device = self.device     
+                # score = Scoring()
+                # score.device = self.device     
                 # Trad
-                # score = nl.getScoreInstance_deg("temp_path", output_image2, output_image.cpu().detach().numpy())
+                # score = nl.getScoreInstance_deg("temp_path", heat_img, output_image.cpu().detach().numpy())
                 # score.lane_list = pl.post_process(score.lane_list)
 
                 # New
                 builder = LaneBuilder()
-                score.lane_list = builder.getKeyfromDelta(output_image.cpu().detach().numpy())
-                score.lane_list = pl.post_process(score.lane_list)
+                # lane_list = builder.getKeyfromDelta(output_image.cpu().detach().numpy())
+                my_lane_list = builder.getLanefromHeat(heat_img, output_image)
+                # if len(my_lane_list)>5:
+                #     my_lane_list = my_lane_list[0:5]
+
+                # score.lane_list = self.getKeyfrom(output_image.cpu().detach().numpy())
+                # score.lane_list = pl.post_process(score.lane_list)
 
                 # print(score.lane_list)
                 # return
-                imgSaver.save_image_deg_basic(img, output_image, "del")                     # circle, arrow, raw delta_map, delta_key
-                imgSaver.save_image_deg_total(img, output_image, output_image2, "del")                     # total arrow
-                imgSaver.save_image_deg(img, output_image2, score, self.image_path, "del")  # heat, lane, GT
+                imgSaver.save_image_deg_basic(img, output_image, "del")                                    # circle, arrow, raw delta_map, delta_key
+                imgSaver.save_image_deg_total(img, output_image, heat_img, "del")                     # total arrow
+                imgSaver.save_image_deg(img, heat_img, my_lane_list, self.image_path, "del")       # heat, lane, GT
                 # ev = EV.LaneEval.bench_one_instance(score.lane_list, img_path, gt_path)
 
             
@@ -188,8 +197,8 @@ class Inference():
     def inference_dir_deg(self):
         start_idx=0
         end_idx=3000
-        # start_idx=50
-        # end_idx=55
+        # start_idx=465
+        # end_idx=480
         print_time_mode = False
         print_time_mode = True
         self.print_inference_option()
@@ -229,9 +238,10 @@ class Inference():
 
                 ## HERE 
                 my_lane_list = self.inference_instance(img, filepath)
+                pl = PostProcess_Logic()
+                # my_lane_list = pl.post_process(my_lane_list)
 
                 # score = nl.getScoreInstance_deg(filepath, out_heat, out_delta)
-                # my_lane_list = pl.post_process(score.lane_list)
                 postprocess_output_time = time.time()
                 # print(my_lane_list)
                 lanelist.append(my_lane_list)
