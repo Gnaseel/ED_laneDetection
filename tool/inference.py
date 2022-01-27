@@ -108,7 +108,7 @@ class Inference():
   
                 input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
                 output_tensor = torch.squeeze(self.model2(input_tensor))
-                heat_img = torch.where(output_tensor[1] > output_tensor[0], 1, 0)
+                heat_img = torch.where(output_tensor[1] > output_tensor[0], 1, 0).cpu().detach().numpy()
 
                 # score = Scoring()
                 # score.device = self.device     
@@ -130,7 +130,8 @@ class Inference():
                 # return
                 imgSaver.save_image_deg_basic(img, output_image, "del")                                    # circle, arrow, raw delta_map, delta_key
                 imgSaver.save_image_deg_total(img, output_image, heat_img, "del")                     # total arrow
-                imgSaver.save_image_deg(img, heat_img, my_lane_list, self.image_path, "del")       # heat, lane, GT
+                # imgSaver.save_image_deg(img, heat_img, my_lane_list, self.image_path, "del")       # heat, lane, GT
+                imgSaver.save_image_deg(img, output_tensor, my_lane_list, self.image_path, "del")       # heat, lane, GT
                 # ev = EV.LaneEval.bench_one_instance(score.lane_list, img_path, gt_path)
 
             
@@ -193,12 +194,12 @@ class Inference():
                 
             print("Inference Finished!")
         return 
-
+#hen 465
     def inference_dir_deg(self):
         start_idx=0
         end_idx=3000
-        # start_idx=465
-        # end_idx=480
+        # start_idx=200
+        # end_idx=250
         print_time_mode = False
         print_time_mode = True
         self.print_inference_option()

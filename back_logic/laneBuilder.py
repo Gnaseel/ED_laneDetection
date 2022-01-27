@@ -303,13 +303,24 @@ class LaneBuilder:
             # print("PREDICTED KEY LIST {}".format(pradicted_lane_key))
 
         return lane_data
+    def getMaxHeight(self, heat_img):
+        max_height = 80
+        for idx, height in enumerate(heat_img):
+            # print(height.shape)
+            # print(type(height))
+            if np.max(height)>0:
+                # print("MAX HEIGHT = {}".format(idx))
+                return idx
+        return max_height
     def getLanefromHeat(self, heat_img, delta_img):
 
         key_list=self.getKeyfromHeat(heat_img, delta_img[:,:,0], 170)
         lane_data = Lane()
         lane_data = self.buildLane(key_list,  delta_img[:,:,1])
-        lane_data = self.predict_horizon(heat_img, lane_data, 160, 80)
         
+        # max_height = self.getMaxHeight(heat_img)
+        max_height = 80
+        lane_data = self.predict_horizon(heat_img, lane_data, 160, max_height) #STD 80
 
         new_list = lane_data.tensor2lane()
         new_list = self.getLanebyH_sample_deg(new_list, 160, 710, 10)

@@ -86,14 +86,16 @@ class ImgSaver:
             gt_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_GT.jpg")
             seged_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_Seged.jpg")
             heat_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat.jpg")
+            heat_fir_dir_raw = os.path.join(delta_dir_name,str(fileName)+"_heat_raw.jpg")
+            heat_fir_dir_back = os.path.join(delta_dir_name,str(fileName)+"_heatback.jpg")
             heat_key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat_key.jpg")
             lane_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_lane.jpg")
 
             # gt_path = os.path.join(img_path)
             # seged_image = cv2.resize(out_heat.cpu().detach().numpy()[:,:]*50, (1280,720))
-            out_heat = torch.unsqueeze(out_heat, dim=2)
+            # out_heat = torch.unsqueeze(out_heat, dim=2)
             print(image.shape)
-            print(out_heat.cpu().detach().numpy().shape)
+            print("Heat Shape {}".format(out_heat[1].cpu().detach().numpy().shape))
             ## HERE!!
             seged_image = cv2.resize(np.copy(image), (1280,720))
             output_key_image = cv2.resize(np.copy(image), (1280,720))
@@ -105,8 +107,8 @@ class ImgSaver:
 
             # score = Scoring()
             # score.device = self.device     
-            # score = nl.getScoreInstance_deg("temp_path", out_heat, out_delta)
-            key_list = nl.getKeypoint(out_heat)
+            # score = nl.getScoreInstance_deg("temp_path", out_heat[1], out_delta)
+            key_list = nl.getKeypoint(out_heat[1])
             for idx, lane in enumerate(key_list):
                 output_key_image = cv2.circle(output_key_image, (int(lane[1]*1280.0/640.0),int(lane[0]*720.0/368.0)), 5, myColor.color_list[0], -1)
             for idx, lane in enumerate(lane_list):
@@ -127,11 +129,18 @@ class ImgSaver:
             cv2.imwrite(raw_fir_dir, image)
             cv2.imwrite(heat_key_fir_dir, output_key_image)
             cv2.imwrite(lane_fir_dir, output_lane_image)
-            # print("SHAPE1 {}".format(out_heat.shape))
-            # out_heat = torch.where(out_heat[:,:,1] > out_heat[:,:,0], 1, 0)
-            # print("SHAPE2 {}".format(out_heat.shape))
+            # print("SHAPE1 {}".format(out_heat[1].shape))
+            # out_heat[1] = torch.where(out_heat[1][:,:,1] > out_heat[1][:,:,0], 1, 0)
+            # print("SHAPE2 {}".format(out_heat[1].shape))
             out_heat = out_heat.cpu().detach().numpy()
-            cv2.imwrite(heat_fir_dir, (out_heat[:,:])*200)
+            # heat_img = np.where(out_heat[1] > out_heat[0], 1, 0)
+            heat_raw = np.where(out_heat[1] > out_heat[0], 200, 0)
+            # un, co = np.unique(out_heat[1], return_counts=True)
+            # print(dict(zip(un,co)))
+            cv2.imwrite(heat_fir_dir_raw, heat_raw )
+            th=0
+            cv2.imwrite(heat_fir_dir, (out_heat[1]+th)*10)
+            cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
             gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
             if not os.path.isfile(gt_path):
                 gt_path = os.path.join(os.sep,*img_path.split(os.sep)[:-3], "laneseg_label", *img_path.split(os.sep)[-3:])[:-3]+"png"
@@ -294,7 +303,7 @@ class ImgSaver:
 
         def save_image_deg_total(self, image, output_image, heat_map, fileName):
             # --------------------------Save segmented map
-            heat_map = heat_map.cpu().detach().numpy()
+            # heat_map = heat_map.cpu().detach().numpy()
             delta_folder_name = "delta"
             delta_dir_name= os.path.join(self.image_save_path, delta_folder_name)
             os.makedirs(delta_dir_name, exist_ok=True)
