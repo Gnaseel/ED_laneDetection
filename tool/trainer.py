@@ -213,7 +213,7 @@ class Trainer():
 
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 2000)
 
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
 
         self.model = self.model.to(self.device)
         self.model.train()
@@ -321,14 +321,7 @@ class Trainer():
         self.epoch = epoch
         self.index = index
         return
-    
-#     def getDataLoader_from_path(self, path):
-#         batch_size=8
-#         data_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
-# #         print(x_train.requires_grad)
-# #         print(y_train.requires_grad)
-#         return data_loader
-#         return
+ 
     def getDataLoader_from_np(self, device, path):
         print("DEVICE {}    PATH {}".format(device, path))
         x_train, x_test, y_train, y_test  = np.load( path , allow_pickle=True)
@@ -388,10 +381,10 @@ class Trainer():
     def getCustomHeatloss(self, output, target):
         output_log = F.log_softmax(output, dim=1)
         one_hot_target = F.one_hot(target).permute(0,3,1,2)
-        one_hot_target[:,1:,:]  *=40
+        one_hot_target[:,1:,:]  *=60
         val = one_hot_target*output_log*torch.pow(1-F.softmax(output, dim=1), 2)
         custom_nll_loss = -val.sum()/(val.shape[0]*val.shape[1]*val.shape[2]*val.shape[3])
-
+        # print(output_log)
         # nll_loss = torch.nn.NLLLoss()
         # official_nll_loss = nll_loss(output_log, target.long())
         # print("CUSTOM")

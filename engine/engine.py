@@ -4,11 +4,11 @@ from back_logic.evaluate import EDeval
 from model.VGG16 import myModel
 from model.VGG16_rf20 import VGG16_rf20
 from model.ResNet34 import ResNet34
-from model.ResNet34_lin import ResNet34_lin
 from model.ResNet34_seg import ResNet34_seg
 from model.ResNet34_seg_SCNN import ResNet34_seg_SCNN
 from model.ResNet34_delta_SCNN import ResNet34_delta_SCNN
 from model.ResNet18_delta_SCNN import ResNet18_delta_SCNN
+from model.ResNet18_total import ResNet18_total
 from model.ResNet18_seg_SCNN import ResNet18_seg_SCNN
 from model.ResNet34_delta import ResNet34_delta
 from model.ResNet50 import ResNet50
@@ -68,6 +68,8 @@ class EngineTheRun():
             trainer.train_delta()
         elif self.cfg.backbone=="ResNet34_deg":
             trainer.train_deg()
+        elif self.cfg.backbone=="ResNet18_total":
+            trainer.train_total()
         elif self.cfg.backbone=="ResNet34_delta_SCNN":
             trainer.train_deg()
         elif self.cfg.backbone=="ResNet18_delta_SCNN":
@@ -88,8 +90,12 @@ class EngineTheRun():
             inferencer.model2 = ResNet18_seg_SCNN()
             inferencer.model2.to(self.device)
             inferencer.model2.eval()
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18_20/epoch_200_index_339.pth", map_location='cpu'))
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_15_13_50_device_cuda:2/epoch_12_index_339.pth", map_location='cpu'))
+
+            
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_0_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_27_18_34_device_cuda:1/epoch_0_index_339.pth", map_location='cpu'))
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_27_13_27_device_cuda:1/epoch_42_index_339.pth", map_location='cpu'))
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_15_13_50_device_cuda:2/epoch_200_index_339.pth", map_location='cpu'))
 
             # By CULANE
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_12_00_29_device_cuda:2/epoch_20_index_468.pth", map_location='cpu'))
@@ -126,7 +132,7 @@ class EngineTheRun():
             inferencer.model2 = ResNet18_seg_SCNN()
             inferencer.model2.to(self.device)
             inferencer.model2.eval()
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_110_index_339.pth", map_location='cpu'))
+            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_600_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/12_27_17_41_device_cuda:0/epoch_100_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
 
@@ -210,9 +216,6 @@ class EngineTheRun():
         elif self.cfg.backbone == "ResNet34":
             model = ResNet34()
             summary(model, (3, 368, 640),device='cpu')
-        elif self.cfg.backbone == "ResNet34_lin":
-            model = ResNet34_lin()
-            summary(model, (3, 176, 304),device='cpu')
         elif self.cfg.backbone == "ResNet34_delta":
             model = ResNet34_delta()
             summary(model, (3, 176, 304),device='cpu')
@@ -236,6 +239,9 @@ class EngineTheRun():
             summary(model, (3, 368, 640),device='cpu')
         elif self.cfg.backbone == "ResNet34_deg":
             model = ResNet34_delta()
+            summary(model, (3, 368, 640),device='cpu')
+        elif self.cfg.backbone == "ResNet18_total":
+            model = ResNet18_total()
             summary(model, (3, 368, 640),device='cpu')
         else:
             print("[Engine] Model Not Defined!!!")
