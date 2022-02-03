@@ -94,8 +94,8 @@ class ImgSaver:
             # gt_path = os.path.join(img_path)
             # seged_image = cv2.resize(out_heat.cpu().detach().numpy()[:,:]*50, (1280,720))
             # out_heat = torch.unsqueeze(out_heat, dim=2)
-            print(image.shape)
-            print("Heat Shape {}".format(out_heat[1].cpu().detach().numpy().shape))
+            # print(image.shape)
+            # print("Heat Shape {}".format(out_heat[1].cpu().detach().numpy().shape))
             ## HERE!!
             seged_image = cv2.resize(np.copy(image), (1280,720))
             output_key_image = cv2.resize(np.copy(image), (1280,720))
@@ -125,7 +125,10 @@ class ImgSaver:
                     idx2+=1
                 idx+=1
             # print("LANE {}".format(lane_list))
-            ev = EV.LaneEval.bench_one_instance(lane_list, img_path, "./evaluator/gt.json")
+            if img_path.find("\\") != -1:
+                img_path = img_path.replace("\\", "/")
+            a, p, n = EV.LaneEval.bench_one_instance(lane_list, img_path, "./evaluator/gt.json")
+            # print(ev.)
             cv2.imwrite(raw_fir_dir, image)
             cv2.imwrite(heat_key_fir_dir, output_key_image)
             cv2.imwrite(lane_fir_dir, output_lane_image)
@@ -144,7 +147,6 @@ class ImgSaver:
             gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
             if not os.path.isfile(gt_path):
                 gt_path = os.path.join(os.sep,*img_path.split(os.sep)[:-3], "laneseg_label", *img_path.split(os.sep)[-3:])[:-3]+"png"
-                print(gt_path)
                 # print("IGM PATH {}".format(os.path.join(gt_path, *img_path.split(os.sep)[-3:])[:-3]+"png"))
             if os.path.isfile(gt_path):
                 gt_img = cv2.imread(gt_path)
@@ -292,7 +294,6 @@ class ImgSaver:
             
             # print("Key List {}".format(key_list))   
             # print("Key Up List {}".format(key_up_list))   
-
             cv2.imwrite(right_fir_dir, output_right_arrow_image)
             cv2.imwrite(up_fir_dir, output_up_image)
             cv2.imwrite(right_circle_fir_dir, output_right_circle_image)
@@ -373,9 +374,7 @@ class ImgSaver:
                         output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,0,255), arrow_size)
                     else:
                         output_total_arrow_image = cv2.arrowedLine(output_total_arrow_image, startPoint, endpoint_total_arrow, (0,255, 0), arrow_size)
-            print(tensor_idx)
-            print(temp_tensor)
-            self.save_image_cluster(temp_tensor[:,0:tensor_idx-1])
+            # self.save_image_cluster(temp_tensor[:,0:tensor_idx-1])
             cv2.imwrite(total_arrow_fir_dir, output_total_arrow_image)
             return
         

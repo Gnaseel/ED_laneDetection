@@ -18,19 +18,30 @@ from back_logic.network_logic import Network_Logic
 from back_logic.postprocess_logic import PostProcess_Logic
 from back_logic.laneBuilder import LaneBuilder
 from back_logic.laneBuilder import Lane
-
+import config.config_window as CFG
+from model.ResNet18_seg_SCNN import ResNet18_seg_SCNN
+import json
 class Inference():
     def __init__(self, args):
         self.cfg = args
-        self.device = torch.device('cpu')
+        self.device = self.cfg.device
         self.model_path = self.cfg.model_path
         self.image_path = self.cfg.image_path
+        self.dataset_path = self.cfg.dataset_path
         self.image_save_path = os.path.dirname(self.cfg.model_path)+"/Image"
         self.gt_path = self.cfg.save_path
-        self.model = None
-        self.model2 = None
+        self.model = self.cfg.model.to(self.device)
+        self.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
+        
+        heat_path = os.path.join(CFG.weight_file_path, CFG.heat_weight_file)
+
+        self.model2 = ResNet18_seg_SCNN()
+        self.model2.to(self.device)
+        self.model2.eval()
+        self.model2.load_state_dict(torch.load(heat_path, map_location='cpu'))
+
+        # self.model = None
         # tuSimple
-        self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/test_set"
         #cuLane
         # self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/CULane"
         self.time_network = 0
@@ -120,6 +131,7 @@ class Inference():
                 builder = LaneBuilder()
                 # lane_list = builder.getKeyfromDelta(output_image.cpu().detach().numpy())
                 my_lane_list = builder.getLanefromHeat(heat_img, output_image)
+                # print(my_lane_list)
                 # if len(my_lane_list)>5:
                 #     my_lane_list = my_lane_list[0:5]
 
@@ -127,12 +139,12 @@ class Inference():
                 # score.lane_list = pl.post_process(score.lane_list)
 
                 # print(score.lane_list)
-                # return
                 imgSaver.save_image_deg_basic(img, output_image, "del")                                    # circle, arrow, raw delta_map, delta_key
                 imgSaver.save_image_deg_total(img, output_image, heat_img, "del")                     # total arrow
                 # imgSaver.save_image_deg(img, heat_img, my_lane_list, self.image_path, "del")       # heat, lane, GT
                 imgSaver.save_image_deg(img, output_tensor, my_lane_list, self.image_path, "del")       # heat, lane, GT
                 # ev = EV.LaneEval.bench_one_instance(score.lane_list, img_path, gt_path)
+                return
 
             
             elif self.cfg.backbone=="ResNet34_seg":
@@ -214,7 +226,7 @@ class Inference():
         file_list=[]
         # start_time = time.time()
         idx=0
-
+        test_list = self.get_test_list_tuSimple()
         for folder_path in folder_list:       
             sub_folder_list = glob.glob(os.path.join(folder_path, "*"))
             for folder in sub_folder_list:
@@ -226,44 +238,44 @@ class Inference():
                 start_time = time.time()
 
                 filepath = os.path.join(folder,"20.jpg")
-                path_list = filepath.split('/')
-                re_path = os.path.join(*path_list[:])
-                pathlist.append(os.path.join(*path_list[-4:]))
-                #----------------------- Get Image ---------------------------------------------
+        for file_path in test_list:
+            full_file_path = os.path.join(CFG.dataset_path, file_path)
+            # file_path = filepath.split('/')
+            re_path = os.path.join(*file_path[:])
+            #----------------------- Get Image ---------------------------------------------
 
-                
-
-                img = cv2.imread(filepath)
-                input_time = time.time()
-
-
-                ## HERE 
-                my_lane_list = self.inference_instance(img, filepath)
-                pl = PostProcess_Logic()
-                # my_lane_list = pl.post_process(my_lane_list)
-
-                # score = nl.getScoreInstance_deg(filepath, out_heat, out_delta)
-                postprocess_output_time = time.time()
-                # print(my_lane_list)
-                lanelist.append(my_lane_list)
+            img = cv2.imread(full_file_path)
+            input_time = time.time()
 
 
+            ## HERE 
+            my_lane_list = self.inference_instance(img, full_file_path)
+            # pl = PostProcess_Logic()
+            # postprocess_output_time = time.time()
+
+            # pathlist.append(os.path.join(*file_path[-4:]))
+            print(my_lane_list)
+            pathlist.append(file_path)
+            lanelist.append(my_lane_list)
+            end_time = time.time()
+
+            print("TIME = {}".format(end_time-input_time))
 
 
-                # if print_time_mode:
-                    # print("Get Network Output time {}".format(getNetwokr_output_time-input_time))
-                    # print("Get Lane Model time {}".format(lane_output_time-getNetwokr_output_time))
-                    # print("Post Process time {}".format(postprocess_output_time-lane_output_time))
-                    # print("Total time {}".format(postprocess_output_time-input_time))
-                # print("")
+            # if print_time_mode:
+                # print("Get Network Output time {}".format(getNetwokr_output_time-input_time))
+                # print("Get Lane Model time {}".format(lane_output_time-getNetwokr_output_time))
+                # print("Post Process time {}".format(postprocess_output_time-lane_output_time))
+                # print("Total time {}".format(postprocess_output_time-input_time))
+            # print("")
 
-                # score = self.getScoreInstance_deg(img, filepath)
-                # if True:
-                if len(lanelist)%100==0:
-                    print("Idx {}".format(len(lanelist)))
-                    end_time = time.time()
-                    print(end_time-start_time)
-                    start_time = end_time
+            # score = self.getScoreInstance_deg(img, filepath)
+            # if True:
+            if len(lanelist)%100==0:
+                print("Idx {}".format(len(lanelist)))
+                end_time = time.time()
+                print(end_time-start_time)
+                start_time = end_time
 
         print("Inference Finished!")
         print("Time = {}".format(time.time()-total_time))
@@ -285,7 +297,7 @@ class Inference():
         file_num=0
         file_list=[]
         start_time = time.time()
-        
+
         for folder_path in folder_list:       
             sub_folder_list = glob.glob(os.path.join(folder_path, "*"))
             for folder in sub_folder_list:
@@ -346,4 +358,15 @@ class Inference():
         print("Image save path : {}".format(self.image_save_path))
         print("Image gt_path   : {}".format(self.gt_path))
         
-    
+    def get_test_list_tuSimple(self):
+        test_list_path = os.path.join(self.cfg.dataset_path, "test_label.json")
+        test_list = []
+        # print(test_list_path)
+
+        f = open(test_list_path,'r')
+        lines = f.readlines()
+        for line in lines:
+            json_object = json.loads(line)
+            # print(json_object["raw_file"])
+            test_list.append(json_object["raw_file"])
+        return test_list

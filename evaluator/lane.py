@@ -95,6 +95,7 @@ class LaneEval(object):
         run_time = 1
 
         if raw_file not in gts:
+            print("[ERROR] File {} Not Founded!!!".format(raw_file))
             return None
             raise Exception('Some raw_file from your predictions do not exist in the test tasks.')
         gt = gts[raw_file]

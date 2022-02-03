@@ -1,6 +1,6 @@
 import argparse
 from engine.engine import EngineTheRun
-
+import config.config_window as cfg
 def parse_arg():
     parser = argparse.ArgumentParser(description='the parser')
     parser.add_argument('--mode', help='t = train, i = inference')
@@ -11,6 +11,9 @@ def parse_arg():
     parser.add_argument('--save_path', default = 'VGG16', help='The path of output image inferenced')
     parser.add_argument('--backbone', default = 'VGG16', help='The backbone network')
     parser.add_argument('--device', default = '-1', help='-1 = CPU, 0,1,2... = GPU')
+    parser.add_argument('--dataset_path', default = '-1', help='The path of dataset')
+    # For Linux /home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple
+    # For Window /home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple
 
     args = parser.parse_args()
     return args
@@ -33,4 +36,5 @@ def main():
 if __name__ == "__main__":
     # print(torch.__version__)
     # print(np.__version__)
+    print(cfg.dataset_path)
     main()

@@ -22,15 +22,24 @@ from back_logic.image_saver import ImgSaver
 from tool.scoring import Scoring
 import glob
 import cv2
-
+import config.config_window as CFG
 import torch
 class EngineTheRun():
     def __init__(self, args):
         self.cfg= args
-        self.device = 'cpu'
+        # self.cfg.device = 'cpu'
+        # self.cfg.device
+        self.cfg.model_path = os.path.join(CFG.weight_file_path, CFG.delta_weight_file)
+        self.cfg.dataset_path =CFG.dataset_path
+        self.cfg.image_path =CFG.image_path
+        self.cfg.model = self.getModel()
+        print("MODEL PATH {}".format(self.cfg.model_path))
         if args.device!='-1':
-            self.device='cuda:'+args.device
-        print("My Device is {}".format(self.device))
+            # self.device='cuda:'+args.device
+            self.cfg.device='cuda:'+args.device
+        else:
+            self.cfg.device='cpu'
+        print("My Device is {}".format(self.cfg.device))
 
         return
     def train(self):
@@ -81,58 +90,29 @@ class EngineTheRun():
 
     def inference(self):
         inferencer = Inference(self.cfg)
-        inferencer.model = self.getModel().to(self.device)
-        inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
-        inferencer.model.eval()
-        if self.cfg.backbone=="ResNet34_deg"  or self.cfg.backbone=="ResNet18_delta_SCNN":
-            print("SET Model 2")
-            # inferencer.model2 = ResNet34_seg()
-            inferencer.model2 = ResNet18_seg_SCNN()
-            inferencer.model2.to(self.device)
-            inferencer.model2.eval()
-
-            
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_0_index_339.pth", map_location='cpu'))
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_27_18_34_device_cuda:1/epoch_0_index_339.pth", map_location='cpu'))
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_27_13_27_device_cuda:1/epoch_42_index_339.pth", map_location='cpu'))
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_15_13_50_device_cuda:2/epoch_200_index_339.pth", map_location='cpu'))
-
-            # By CULANE
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/01_12_00_29_device_cuda:2/epoch_20_index_468.pth", map_location='cpu'))
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/12_27_17_41_device_cuda:0/epoch_100_index_339.pth", map_location='cpu'))
-            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
-
-        inferencer.device = self.device
-        # inferencer.model.to(self.device)
-        
         if self.cfg.showAll:
             inferencer.inference_all()
         else:
             inferencer.inference()
-
     def scoring(self):
-
-        
         inferencer = Inference(self.cfg)
-        inferencer.model = self.getModel()
-        inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
-        inferencer.model.to(self.device)
-        inferencer.model.eval()
-        inferencer.device = self.device
+        # inferencer.model = self.getModel().to(self.device)
+        # inferencer.model.load_state_dict(torch.load(self.cfg.model_path, map_location='cpu'))
+        # inferencer.model.eval()
+        # inferencer.device = self.device
         os.makedirs(inferencer.image_save_path, exist_ok=True)
         
 
         score = Scoring()
-        score.device = self.device     
+        score.device = self.cfg.device     
 
         # if self.cfg.backbone=="ResNet34_deg":
         if self.cfg.backbone=="ResNet34_deg"  or self.cfg.backbone=="ResNet18_delta_SCNN" or self.cfg.backbone=="ResNet34_delta_SCNN":
 
-            inferencer.model2 = ResNet34_seg()
-            inferencer.model2 = ResNet18_seg_SCNN()
-            inferencer.model2.to(self.device)
-            inferencer.model2.eval()
-            inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_600_index_339.pth", map_location='cpu'))
+            # inferencer.model2 = ResNet18_seg_SCNN()
+            # inferencer.model2.to(self.device)
+            # inferencer.model2.eval()
+            # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/SCNN_18/epoch_600_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/12_27_17_41_device_cuda:0/epoch_100_index_339.pth", map_location='cpu'))
             # inferencer.model2.load_state_dict(torch.load("/home/ubuntu/Hgnaseel_SHL/Network/weight_file/lane_segmentation/epoch_70_index_339.pth", map_location='cpu'))
 
