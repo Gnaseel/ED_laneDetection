@@ -22,7 +22,8 @@ from back_logic.image_saver import ImgSaver
 from tool.scoring import Scoring
 import glob
 import cv2
-import config.config_window as CFG
+# import config.config_window as CFG
+import config.config_RIPPER as CFG
 import torch
 class EngineTheRun():
     def __init__(self, args):
@@ -30,6 +31,7 @@ class EngineTheRun():
         # self.cfg.device = 'cpu'
         # self.cfg.device
         self.cfg.model_path = os.path.join(CFG.weight_file_path, CFG.delta_weight_file)
+        self.cfg.heat_model_path = os.path.join(CFG.weight_file_path, CFG.heat_weight_file)
         self.cfg.dataset_path =CFG.dataset_path
         self.cfg.image_path =CFG.image_path
         self.cfg.model = self.getModel()
@@ -136,7 +138,7 @@ class EngineTheRun():
         #         print("to = {}".format(len(lane_tensor[idx][0:5])))
         #         lane_tensor[idx] =  lane_tensor[idx][0:5]
         imgSaver = ImgSaver(self.cfg)
-        imgSaver.device = self.device
+        imgSaver.device = self.cfg.device
         filepaths=[]
         save_image_num=20
 
@@ -152,13 +154,17 @@ class EngineTheRun():
             evaluator.sort_list()
             #--------------------- Save Good Image ---------------
             for idx, list in enumerate(evaluator.eval_list):
-                added_path = os.path.join(self.cfg.image_path, *list.filePath.split(os.sep)[1:])
+                # print("ADDED {}".format(self.cfg.image_path))
+                # added_path = os.path.join(self.cfg.image_path, *list.filePath.split(os.sep)[1:])
+                added_path = os.path.join(self.cfg.dataset_path, *list.filePath.split(os.sep))
+                print("Dataset_path = {}".format(self.cfg.dataset_path))
+                print("ADDED22 {}".format(*list.filePath.split(os.sep)))
                 imgSaver.save_image_dir_deg(inferencer, added_path, "bad")
                 if idx > save_image_num:
                     break
             #--------------------- Save Bad Image ---------------
             for idx, list in enumerate(reversed(evaluator.eval_list)):
-                added_path = os.path.join(self.cfg.image_path, *list.filePath.split(os.sep)[1:])   #"/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple" + (need)"/0531/1492729085263099246/20.jpg")
+                added_path = os.path.join(self.cfg.dataset_path, *list.filePath.split(os.sep))   #"/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple" + (need)"/0531/1492729085263099246/20.jpg")
                 imgSaver.save_image_dir_deg(inferencer, added_path, "good")
                 if idx > save_image_num:
                     break
@@ -172,8 +178,13 @@ class EngineTheRun():
                 fp += p
                 fn += n
                 print("{} {} {}".format(a, p, n))
-                file_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path)
-                imgSaver.save_image_dir_deg(inferencer, file_path, "SOME")
+                print("Dataset_path = {}".format(self.cfg.dataset_path))
+                print("file_path = {}".format(path))
+                final_path = os.path.join(self.cfg.dataset_path, path)
+                # print("ADDED22 {}".format(*list.filePath.split(os.sep)))
+                # imgSaver.save_image_dir_deg(inferencer, self.cfg.image_path, "bad")
+                # file_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple", path)
+                imgSaver.save_image_dir_deg(inferencer, final_path, "SOME")
             acc /=len(lane_tensor)
             fp /=len(lane_tensor)
             fn /=len(lane_tensor)

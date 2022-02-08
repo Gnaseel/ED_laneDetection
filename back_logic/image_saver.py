@@ -82,14 +82,15 @@ class ImgSaver:
             delta_dir_name= os.path.join(self.image_save_path, delta_folder_name)
             os.makedirs(delta_dir_name, exist_ok=True)
 
-            raw_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_raw.jpg")
-            gt_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_GT.jpg")
-            seged_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_Seged.jpg")
-            heat_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat.jpg")
-            heat_fir_dir_raw = os.path.join(delta_dir_name,str(fileName)+"_heat_raw.jpg")
-            heat_fir_dir_back = os.path.join(delta_dir_name,str(fileName)+"_heatback.jpg")
-            heat_key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat_key.jpg")
-            lane_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_lane.jpg")
+            extention = "png"
+            raw_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_raw."+extention)
+            gt_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_GT."+extention)
+            seged_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_Seged."+extention)
+            heat_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat."+extention)
+            heat_fir_dir_raw = os.path.join(delta_dir_name,str(fileName)+"_heat_raw."+extention)
+            heat_fir_dir_back = os.path.join(delta_dir_name,str(fileName)+"_heatback."+extention)
+            heat_key_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_heat_key."+extention)
+            lane_fir_dir = os.path.join(delta_dir_name,str(fileName)+"_lane."+extention)
 
             # gt_path = os.path.join(img_path)
             # seged_image = cv2.resize(out_heat.cpu().detach().numpy()[:,:]*50, (1280,720))
@@ -128,20 +129,22 @@ class ImgSaver:
             if img_path.find("\\") != -1:
                 img_path = img_path.replace("\\", "/")
             a, p, n = EV.LaneEval.bench_one_instance(lane_list, img_path, "./evaluator/gt.json")
-            # print(ev.)
             cv2.imwrite(raw_fir_dir, image)
             cv2.imwrite(heat_key_fir_dir, output_key_image)
             cv2.imwrite(lane_fir_dir, output_lane_image)
-            # print("SHAPE1 {}".format(out_heat[1].shape))
-            # out_heat[1] = torch.where(out_heat[1][:,:,1] > out_heat[1][:,:,0], 1, 0)
             # print("SHAPE2 {}".format(out_heat[1].shape))
             out_heat = out_heat.cpu().detach().numpy()
-            # heat_img = np.where(out_heat[1] > out_heat[0], 1, 0)
             heat_raw = np.where(out_heat[1] > out_heat[0], 200, 0)
+            # heat_img = np.where(out_heat[1] > out_heat[0], 1, 0)
             # un, co = np.unique(out_heat[1], return_counts=True)
             # print(dict(zip(un,co)))
             cv2.imwrite(heat_fir_dir_raw, heat_raw )
-            th=0
+            threshold=-1
+            out_heat[1] = np.where(out_heat[1] > threshold, 10, -1)
+            out_heat[0] = np.where(out_heat[0] > threshold, 10, -1)
+            # torch.where(out_heat[1] > torch.tensor(0.5), torch.tensor(10), torch.tensor(0))
+
+            th=3
             cv2.imwrite(heat_fir_dir, (out_heat[1]+th)*10)
             cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
             gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
@@ -153,6 +156,8 @@ class ImgSaver:
                 print("GT PAHT {}".format(gt_path))
                 gt_img = np.where(gt_img>0, 255, 0)
                 cv2.imwrite(gt_fir_dir, gt_img)
+            else:
+                print("GT not found {}".format(gt_path))
             cv2.imwrite(seged_fir_dir, seged_image)
 
         def save_image_deg_basic(self, image, output_image, fileName, delta_height=10, delta_threshold = 30):
@@ -428,7 +433,7 @@ class ImgSaver:
             
             # for file_idx, file in enumerate(paths):
             img = cv2.imread(path)
-            lane_list = inferencer.inference_instance(img)
+            lane_list, temp = inferencer.inference_instance(img)
             path_list = path.split(os.sep)
             clip_idx = path_list.index('clips')
             raw_img = self.plot_lane_img(img, lane_list)
@@ -452,8 +457,8 @@ class ImgSaver:
             fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(fileName)+".jpg")
             cv2.imwrite(fir_dir, raw_img)
             gtfileName = "ground_truth"
-            fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(gtfileName)+".jpg")
-            cv2.imwrite(fir_dir, gt_img*50)
+            # fir_dir = os.path.join(dir_name,path_list[clip_idx+1] + "_" + path_list[clip_idx+2] + "_" + str(gtfileName)+".jpg")
+            # cv2.imwrite(fir_dir, gt_img*50)
             return
             
         def plot_lane_img(self, img, lane_list):

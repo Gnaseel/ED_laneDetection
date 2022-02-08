@@ -1,5 +1,5 @@
-python main.py --mode inference --backbone ResNet18_delta_SCNN
-python main.py --mode score --backbone ResNet18_delta_SCNN
+python main.py --mode inference --backbone ResNet18_delta_SCNN --device 1
+python main.py --mode score --backbone ResNet18_delta_SCNN --device 1
 
 
 

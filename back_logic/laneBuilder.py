@@ -179,17 +179,18 @@ class LaneBuilder:
         delta_threshold = 20
 
         key_list=[]
-        for i in range(min_height, heat_image.shape[0], 5):
+        height_delta=5
+        for i in range(min_height, heat_image.shape[0], height_delta):
             width_list=[]
             for j in range(10, heat_image.shape[1], 3):
-                # if j+11 > heat_image.shape[1] or j-11 < 0:
-                #     continue
+
                 if  0 < heat_image[i,j]:
                     width_list.append(j)
 
                 # get Key From delta
                 if j+11 > delta_right_image.shape[1] or j-11 < 0:
                     continue
+                    
                 if  delta_threshold_min < delta_right_image[i,j] and delta_right_image[i,j] < delta_threshold:
                     direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
                     width_list.append(int(delta_right_image[i,j])*direction + j)
@@ -202,7 +203,7 @@ class LaneBuilder:
             buf=last=width_list[0]
             point_list=[]
             for idx in width_list[1:]:
-                if idx > last+40:
+                if idx > last+20:
                     count +=1
                     point_list.append([i, int(buf/buf_count)])
                     buf_count=1
@@ -243,8 +244,10 @@ class LaneBuilder:
             ## 2. Point Clustering (width)
             buf_count=1
             buf=last=width_list[0]
+            print("Height {}".format())
             for idx in width_list[1:]:
                 if idx > last+15:
+                    print("Buffcount {}".format(buf_count))
                     count +=1
                     horizon_heat_key.append([height, int(buf/buf_count)])
                     buf_count=1
@@ -295,10 +298,6 @@ class LaneBuilder:
                     no_pair.append(idx)
             # for idx, pred in enumerate(pradicted_lane_key):
             #     if idx in no_pair:
-
-
-
-
             # print("HORIZON KEY LIST {}".format(horizon_heat_key))
             # print("PREDICTED KEY LIST {}".format(pradicted_lane_key))
 
@@ -318,8 +317,8 @@ class LaneBuilder:
         lane_data = Lane()
         lane_data = self.buildLane(key_list,  delta_img[:,:,1])
         
-        # max_height = self.getMaxHeight(heat_img)
-        max_height = 80
+        max_height = self.getMaxHeight(heat_img)
+        # max_height = 80
         lane_data = self.predict_horizon(heat_img, lane_data, 160, max_height) #STD 80
 
         new_list = lane_data.tensor2lane()
