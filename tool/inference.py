@@ -53,8 +53,8 @@ class Inference():
         pl.device = self.device
         #Loop
         input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
-        output_tensor = self.model(input_tensor)
-        out_delta = output_tensor[0].permute(1,2,0).cpu().detach().numpy()
+        output_delta_tensor = self.model(input_tensor)
+        out_delta = output_delta_tensor[0].permute(1,2,0).cpu().detach().numpy()
         output_tensor = torch.squeeze(self.model2(input_tensor))
 
         model_out_time = time.time()
@@ -70,8 +70,9 @@ class Inference():
         # print("NON ZERO {}".format(torch.count_nonzero(out_heat)))
         
         builder = LaneBuilder()
+        builder.device = self.cfg.device
         # my_lane_list = builder.getKeyfromDelta(out_delta)
-        my_lane_list = builder.getLanefromHeat(out_heat, out_delta)
+        my_lane_list = builder.getLanefromHeat(output_tensor, out_delta, img)
         
         # NEW
 
@@ -88,7 +89,7 @@ class Inference():
         self.time_network +=model_out_time-start_time
         self.time_post_process +=lane_output_time - model_out_time
 
-        return my_lane_list, output_tensor
+        return my_lane_list, output_tensor, output_delta_tensor
     
     def inference(self):
 
@@ -99,58 +100,13 @@ class Inference():
         img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
 
         #----------------------- Inference ---------------------------------------------
-        my_lane_list, output_tensor = self.inference_instance(img, path)
-        imgSaver.save_image_deg_basic(img, output_image, "del")                                    # circle, arrow, raw delta_map, delta_key
-        imgSaver.save_image_deg(img, output_tensor, my_lane_list, self.image_path, "del")       # heat, lane, GT
-        return
-        output_image = None
-
-        self.print_inference_option()
-        nl = Network_Logic()
-        nl.device=self.device
-        pl = PostProcess_Logic()
-        pl.device=self.device
+        my_lane_list, output_heat_tensor, output_delta_tensor = self.inference_instance(img, path)
         imgSaver = ImgSaver(self.cfg)
         imgSaver.device = self.device
-        output_image = nl.inference_np2tensor_instance(img, self.model)
-        #----------------------- Show Image ---------------------------------------------
-        if self.cfg.show:
-            self.show_image(img)
-        #----------------------- Save Image ---------------------------------------------
-        else:
-            if self.cfg.backbone=="ResNet34":
-                self.save_image_softmax(img, output_image,"_arrowed")
+        imgSaver.save_image_deg_basic(img, output_delta_tensor, "del")                                    # circle, arrow, raw delta_map, delta_key
+        imgSaver.save_image_deg(img, output_heat_tensor, my_lane_list, self.image_path, "del")       # heat, lane, GT
+        return
 
-            elif self.cfg.backbone=="ResNet34_delta":
-                imgSaver.save_image_delta(img, output_image, "del")
-            
-            elif self.cfg.backbone=="ResNet34_deg" or self.cfg.backbone=="ResNet18_delta_SCNN" or self.cfg.backbone=="ResNet34_delta_SCNN":
-                start_time = time.time()
-                input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
-                output_tensor = torch.squeeze(self.model2(input_tensor))
-
-                # heat_img = torch.where(output_tensor[1] > output_tensor[0], torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
-                th=-3
-                heat_img = torch.where(output_tensor[0] < th, torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
-
-                end_time = time.time()
-                print("TIME = {}".format(end_time-start_time))
-
-                builder = LaneBuilder()
-                my_lane_list = builder.getLanefromHeat(heat_img, output_image)
-
-                imgSaver.save_image_deg_basic(img, output_image, "del")                                    # circle, arrow, raw delta_map, delta_key
-                # imgSaver.save_image_deg_total(img, output_image, heat_img, "del")                     # total arrow
-                # imgSaver.save_image_deg(img, heat_img, my_lane_list, self.image_path, "del")       # heat, lane, GT
-                imgSaver.save_image_deg(img, output_tensor, my_lane_list, self.image_path, "del")       # heat, lane, GT
-                # ev = EV.LaneEval.bench_one_instance(score.lane_list, img_path, gt_path)
-                return
-
-            
-            elif self.cfg.backbone=="ResNet34_seg":
-                imgSaver.save_image_seg(self.model, img, output_image, "seg")
-            else:
-                print("N")
 
     def show_image(self, img):
 
@@ -208,10 +164,10 @@ class Inference():
         return 
 #hen 465
     def inference_dir_deg(self):
-        # start_idx=0
-        # end_idx=3000
-        start_idx=200
-        end_idx=250
+        start_idx=0
+        end_idx=3000
+        # start_idx=200
+        # end_idx=250
         print_time_mode = False
         print_time_mode = True
         self.print_inference_option()
@@ -251,7 +207,7 @@ class Inference():
 
 
             ## HERE 
-            my_lane_list, temp = self.inference_instance(img, full_file_path)
+            my_lane_list, temp, temp2 = self.inference_instance(img, full_file_path)
             # pl = PostProcess_Logic()
             # postprocess_output_time = time.time()
 

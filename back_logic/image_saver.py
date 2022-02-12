@@ -139,9 +139,9 @@ class ImgSaver:
             # un, co = np.unique(out_heat[1], return_counts=True)
             # print(dict(zip(un,co)))
             cv2.imwrite(heat_fir_dir_raw, heat_raw )
-            threshold=-1
+            threshold=-5
             out_heat[1] = np.where(out_heat[1] > threshold, 10, -1)
-            out_heat[0] = np.where(out_heat[0] > threshold, 10, -1)
+            out_heat[0] = np.where(out_heat[0] < threshold, 10, -1)
             # torch.where(out_heat[1] > torch.tensor(0.5), torch.tensor(10), torch.tensor(0))
 
             th=3
@@ -163,7 +163,7 @@ class ImgSaver:
         def save_image_deg_basic(self, image, output_image, fileName, delta_height=10, delta_threshold = 30):
             delta_threshold_min=3
             # return
-            output_image = output_image.cpu().detach().numpy()
+            output_image = output_image[0].permute(1,2,0).cpu().detach().numpy()
             # --------------------------Save segmented map
             delta_folder_name = "delta"
             delta_dir_name= os.path.join(self.image_save_path, delta_folder_name)
@@ -192,11 +192,11 @@ class ImgSaver:
             delta_right_image = output_image[:,:,0]
             delta_up_image = output_image[:,:,1]
 
-            nl = Network_Logic()
-            nl.device = self.device
-            delta_key_list = nl.getKeypoint(output_image[:,:,0],  threshold = 2.5,reverse = True)
-            for idx, lane in enumerate(delta_key_list):
-                output_delta_key_image = cv2.circle(output_delta_key_image, (int(lane[1]),int(lane[0])), 2, myColor.color_list[0], -1)
+            # nl = Network_Logic()
+            # nl.device = self.device
+            # delta_key_list = nl.getKeypoint(output_image[:,:,0],  threshold = 2.5,reverse = True)
+            # for idx, lane in enumerate(delta_key_list):
+            #     output_delta_key_image = cv2.circle(output_delta_key_image, (int(lane[1]),int(lane[0])), 2, myColor.color_list[0], -1)
                 # output_delta_key_image = cv2.circle(output_delta_key_image, (int(lane[1]*1280.0/640.0),int(lane[0]*720.0/368.0)), 5, myColor.color_list[0], -1)
 
             # Arrow, Circle Image
@@ -433,7 +433,7 @@ class ImgSaver:
             
             # for file_idx, file in enumerate(paths):
             img = cv2.imread(path)
-            lane_list, temp = inferencer.inference_instance(img)
+            lane_list, temp, temp = inferencer.inference_instance(img)
             path_list = path.split(os.sep)
             clip_idx = path_list.index('clips')
             raw_img = self.plot_lane_img(img, lane_list)
