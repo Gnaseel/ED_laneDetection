@@ -139,14 +139,16 @@ class ImgSaver:
             # un, co = np.unique(out_heat[1], return_counts=True)
             # print(dict(zip(un,co)))
             cv2.imwrite(heat_fir_dir_raw, heat_raw )
-            threshold=-5
-            out_heat[1] = np.where(out_heat[1] > threshold, 10, -1)
-            out_heat[0] = np.where(out_heat[0] < threshold, 10, -1)
+            threshold=10
+            # out_heat[1] = np.where(out_heat[1] > threshold, 10, -1)
             # torch.where(out_heat[1] > torch.tensor(0.5), torch.tensor(10), torch.tensor(0))
+            # out_heat[0] = np.where(out_heat[0] < threshold, threshold, out_heat[0])
+            out_heat[0] = cv2.normalize(out_heat[0], None, 0, 255, cv2.NORM_MINMAX)
 
-            th=3
+            th=0
             cv2.imwrite(heat_fir_dir, (out_heat[1]+th)*10)
-            cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
+            # cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
+            cv2.imwrite(heat_fir_dir_back, out_heat[0]*10)
             gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
             if not os.path.isfile(gt_path):
                 gt_path = os.path.join(os.sep,*img_path.split(os.sep)[:-3], "laneseg_label", *img_path.split(os.sep)[-3:])[:-3]+"png"

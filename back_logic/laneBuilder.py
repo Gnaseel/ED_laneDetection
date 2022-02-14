@@ -136,7 +136,7 @@ class LaneBuilder:
                     width_list.append(int(delta_right_image[i,j])*direction + j)
             if len(width_list)==0:
                 continue
-            point_list = self.widthCluster(width_list, i, 40)
+            point_list = self.widthCluster(width_list, i, 60)
             # print("Key LIST {}".format(point_list))
             # lane_in_height[count] +=1
             key_list.append(point_list)
@@ -397,7 +397,7 @@ class LaneBuilder:
         compat_heat = torch.where(heat_img[0] < heat_img[1], torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
     
         # key_list=self.getKeyfromHeat_pre(compat_heat, delta_img[:,:,0], 170) # 84.0
-        key_list=self.getKeyfromHeat(heat_lane, delta_img[:,:,0], 170, -1) # 82.9
+        key_list=self.getKeyfromHeat(heat_lane, delta_img[:,:,0], 170, 2) # 82.9
         
         lane_data = Lane()
         lane_data = self.buildLane(key_list,  delta_img[:,:,1])
@@ -409,20 +409,33 @@ class LaneBuilder:
         lane_data = self.predict_horizon_v2(compat_heat, lane_data, 165, max_height) #STD 80
 
         new_list = lane_data.tensor2lane()
-        # print(len(new_list[0]))
-        # print(len(new_list[1]))
-        # print(len(new_list[2]))
         new_list.sort(key=len, reverse=True)
-        # print(len(new_list[0]))
-        # print(len(new_list[1]))
-        # print(len(new_list[2]))
         new_list = self.getLanebyH_sample_deg(new_list, 160, 710, 10)
         
         # self.temp_Key_drawer(temp_raw_image.copy(), key_list)
         # self.temp_lane_drawer(temp_raw_image.copy(), lane_data, "temptemp3")
 
         return new_list
-
+    def extendLane(self, lane_list):
+        for idx, lane in enumerate(lane_list):
+            # print("----------")
+            # print(lane_list[idx])
+            if len(lane)<5:
+                continue
+            height=lane[0][0]+5
+            width =lane[0][1]
+            delta = int((lane[0][1] - lane[4][1])/4)
+            extend_list=[]
+            
+            while height < 370 and( 0<width and width <640):
+                extend_list.append([height, width+delta])
+                height += 5
+                width += delta
+            extend_list.reverse()
+            lane_list[idx] = extend_list + lane_list[idx]
+            # print(lane_list[idx])
+            # if lane[0]
+        return lane_list
     def buildLane(self, key_list,  delta_up_image):
         key_list.reverse()
         # key_up_list.reverse()
@@ -587,7 +600,7 @@ class LaneBuilder:
         # print("Height {}".format(height))
         min = max = buf
         for idx in width_list[1:]:
-            if idx > last+20:
+            if idx > last+distBTlane:
                 # print("     Buffcount {}".format(buf_count))
                 # print("     MIN - MAX = {}".format(max-min))
 
@@ -627,7 +640,7 @@ class LaneBuilder:
                 break
             for point in lane:
                 # print("IDX {}".format(idx))
-                img = cv2.circle(img, (point[1], point[0]), 5, myColor.color_list[idx], -1)
+                img = cv2.circle(img, (point[1], point[0]), 3, myColor.color_list[idx], -1)
         
         # img = cv2.circle(img, (478, 120), 10, (255,255,255), -1)
         cv2.imwrite(fileName+".jpg", img)

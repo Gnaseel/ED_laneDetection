@@ -168,6 +168,8 @@ class EngineTheRun():
                 imgSaver.save_image_dir_deg(inferencer, added_path, "good")
                 if idx > save_image_num:
                     break
+            evaluator.eval_list = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+            
         else:
             acc, fp, fn = 0,0,0
             for lane, path in zip(lane_tensor, path_list):
