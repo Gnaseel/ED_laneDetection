@@ -136,7 +136,9 @@ class LaneBuilder:
                     width_list.append(int(delta_right_image[i,j])*direction + j)
             if len(width_list)==0:
                 continue
-            point_list = self.widthCluster(width_list, i, 60)
+            # print("Height {} , Pre Key LIST {}".format(i, width_list))
+            point_list = self.widthCluster(width_list, i, 30)
+            # print("Height {} , PPPPP Key LIST {}".format(i, point_list))
             # print("Key LIST {}".format(point_list))
             # lane_in_height[count] +=1
             key_list.append(point_list)
@@ -398,10 +400,10 @@ class LaneBuilder:
     
         # key_list=self.getKeyfromHeat_pre(compat_heat, delta_img[:,:,0], 170) # 84.0
         key_list=self.getKeyfromHeat(heat_lane, delta_img[:,:,0], 170, 2) # 82.9
-        
+        # key_list = key_list[3:10]
         lane_data = Lane()
         lane_data = self.buildLane(key_list,  delta_img[:,:,1])
-        # self.temp_lane_drawer(temp_raw_image.copy(), lane_data, "temptemp2")
+        self.temp_lane_drawer(temp_raw_image.copy(), lane_data, "temptemp2")
         
         max_height = self.getMaxHeight(compat_heat)
         # lane_data = self.predict_horizon(compat_heat, lane_data, 165, max_height) #STD 80
@@ -456,12 +458,14 @@ class LaneBuilder:
         # keys = key of One height, key_list = key of All height
         temp = 0
         for keys in key_list[1:]:
-
+            # print("KEYS {}".format(keys))
             for key in keys:
-                # print(" KEY {}".format(key))
+                # print("     KEY {}".format(key))
                 min_dist = 100
                 added_idx = np.array([0,0])
                 for idx, lane in enumerate(lane_data.lane_list):
+                    # if idx>5:
+                    #     continue
                     # print("Idx {}".format(idx))
                     if lane_data.lane_idx[idx] == 0:
                         # print("Continue")
@@ -469,8 +473,8 @@ class LaneBuilder:
                     dist = abs(lane[lane_data.lane_idx[idx]-1, 1] - key[1])
                     height_dist = abs(lane[lane_data.lane_idx[idx]-1, 0] - key[0])
 
-                    # print("LANE {}, Key =  {}".format(lane[lane_data.lane_idx[idx]-1, 1], key))
-                    # print("Dist = {}".format(dist))
+                    # print("         LANE {}, Key =  {}".format(lane[lane_data.lane_idx[idx]-1, 1], key))
+                    # print("         Dist = {}".format(dist))
                     if dist < min_dist and height_dist < 71:
                         min_dist = dist
                         added_idx = idx
@@ -481,13 +485,15 @@ class LaneBuilder:
                     # print(lane_data.lane_idx)      
                     lane_data.lane_list[ added_idx, lane_data.lane_idx[added_idx]-1] = key
                     up_lane = self.getUpLane(key, delta_up_image)
-                    lane_data.addKey(up_lane, added_idx)
+                    lane_data.addKey(key, added_idx)
+                    # lane_data.addKey(up_lane, added_idx)
                     # lane_data.lane_predicted[added_idx] = self.lane_predicted 
 
                 else:
                     lane_data.addKey(key, lane_data.lanes_num)
                     up_lane = self.getUpLane(key, delta_up_image)
-                    lane_data.addKey(up_lane, lane_data.lanes_num)
+                    lane_data.addKey(key, lane_data.lanes_num)
+                    # lane_data.addKey(up_lane, lane_data.lanes_num)
                     lane_data.lanes_num+=1
                     # lane_data.lane_list[lane_data.lanes_num, 0] = 
                     # else:

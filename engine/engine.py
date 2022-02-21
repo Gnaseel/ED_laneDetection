@@ -28,6 +28,11 @@ import torch
 class EngineTheRun():
     def __init__(self, args):
         self.cfg= args
+        # print(torch.__version__)
+        # print(torch.__version__)
+        # print(torch.cuda.is_available())
+        # print(torch.cuda.get_arch_list())
+        # return
         # self.cfg.device = 'cpu'
         # self.cfg.device
         self.cfg.model_path = os.path.join(CFG.weight_file_path, CFG.delta_weight_file)
@@ -46,12 +51,12 @@ class EngineTheRun():
         return
     def train(self):
         trainer = Trainer(self.cfg)
-        trainer.model = self.getModel().to(self.device)
+        trainer.model = self.getModel().to(self.cfg.device)
         # trainer.dataset_path = "D:\\lane_dataset\\img_lane_640.npy"
         trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
 
         # tuSimple
-        trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy")
+        # trainer.datasets_path_list.append("/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy")
         # cuLane
         # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_1.npy")
         # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_2.npy")
@@ -72,7 +77,6 @@ class EngineTheRun():
         # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_17.npy")
         # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_1.npy")
 
-        trainer.device = self.device
         if self.cfg.backbone=="ResNet34_seg" or self.cfg.backbone=="ResNet18_seg_SCNN":
             trainer.train_seg()
         if self.cfg.backbone=="ResNet34_delta":

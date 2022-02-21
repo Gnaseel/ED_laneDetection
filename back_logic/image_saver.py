@@ -149,9 +149,14 @@ class ImgSaver:
             cv2.imwrite(heat_fir_dir, (out_heat[1]+th)*10)
             # cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
             cv2.imwrite(heat_fir_dir_back, out_heat[0]*10)
-            gt_path = os.path.join("/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple/seg_label", *img_path.split(os.sep)[1:-1],"20.png")
+            # gt_path = os.path.join("/workspace/data/tuSimple/seged_gt", *img_path.split(os.sep)[1:-1],"20.jpg")
+            gt_path = os.path.join("/workspace/data/tuSimple/seged_gt", img_path)[:-3]+"png"
+            print(gt_path)
+            print(gt_path)
+            print(img_path)
+            print(img_path)
             if not os.path.isfile(gt_path):
-                gt_path = os.path.join(os.sep,*img_path.split(os.sep)[:-3], "laneseg_label", *img_path.split(os.sep)[-3:])[:-3]+"png"
+                gt_path = os.path.join(os.sep,*img_path)[:-3]+"png"
                 # print("IGM PATH {}".format(os.path.join(gt_path, *img_path.split(os.sep)[-3:])[:-3]+"png"))
             if os.path.isfile(gt_path):
                 gt_img = cv2.imread(gt_path)

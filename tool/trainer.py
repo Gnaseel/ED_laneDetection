@@ -30,11 +30,14 @@ class Trainer():
         self.loss = 0
         self.logger = Logger()
         self.model = None
-        self.device='cpu'
+        self.device= args.device
         self.weight=None
 
-        # self.datasets_path=[0 for i in range(0,100)]
-        self.datasets_path=[]
+        # self.datasets_path_list=[0 for i in range(0,100)]
+        self.dataset_dir="./data/"
+        self.datasets_path_list=[]
+        # self.datasets_path_list.append(self.dataset_dir+"img_culane_0215_40.npy")
+        self.datasets_path_list.append(self.dataset_dir+"img_tuSimple_0215.npy")
     
     def train_seg(self):
         # --------------------- Path Setting -------------------------------------------
@@ -43,13 +46,12 @@ class Trainer():
         print('학습을 진행하는 기기:',self.device)
         print('Segmentation Train')
 
-
         # --------------------- Load Dataset -------------------------------------------
         
         # data_loader = self.getDataLoader_from_np(self.device)
 
         # --------------------- Train -------------------------------------------
-        wt = [1,1]
+        wt = [1,40]
         self.setWeight(wt)
         print("WT = {}".format(wt))
         print("WT = {}".format(self.weight))
@@ -59,29 +61,31 @@ class Trainer():
         self.logger.writeTrainingHead(self)
 
         criterion = torch.nn.NLLLoss(weight=self.weight, reduction="mean").to(self.device)
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.001)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
 
         self.model = self.model.to(self.device)
         self.model.train()
-
+        # print("HERE 1")
         for epoch in range(70000):
-            for data_set in self.datasets_path:
+            # print("HERE 2")
+
+            for data_set in self.datasets_path_list:
                 data_loader = self.getDataLoader_from_np(self.device, data_set)
+                # print("HERE 3")
+
                 print("DATASET IDX = {}".format(data_set))
 
                 for index, (data, target) in enumerate(data_loader):
+                    # print("HERE 4")
+
                     optimizer.zero_grad()  # gradient init
                     # print(target.shape)
+
                     target2 = self.getTarget_single(target.detach())
-
-                    #---------------------------- Get Loss ----------------------------------------
-                    # print("333 Output Shape {}".format(F.log_softmax(self.model(data), dim=1).shape))
-                    # print("444 Output Shape {}".format(target2.long().shape))
-
                     # Custom Loss
-                    loss = self.getCustomHeatloss(self.model(data), target2.long())
+                    # loss = self.getCustomHeatloss(self.model(data.float()), target2.long())
                     # Official Loss
-                    # loss = criterion(F.log_softmax(self.model(data), dim=1), target2.long())
+                    loss = criterion(F.log_softmax(self.model(data.float()), dim=1), target2.long())
                     loss.backward()  # backProp
                     optimizer.step()
                     self.loss = loss.item()
@@ -89,14 +93,12 @@ class Trainer():
                     self.dataUpdate(epoch, index)
                     self.logger.printTrainingLog(self)
                     self.logger.saveTrainingtxt(self)
-                    
             if True:
             # if epoch % 10 == 0:
                 print("LOG!!")
                 self.logger.logging(self)
 
         print("Train Finished.")
-
         return
     
 
@@ -131,7 +133,7 @@ class Trainer():
         for epoch in range(70000):
             epoch_start = time.time()
 
-            for data_set in self.datasets_path:
+            for data_set in self.datasets_path_list:
                 data_loader = self.getDataLoader_from_np(self.device, data_set)
                 print("DATASET IDX = {}".format(data_set))
                 for index, (data, target) in enumerate(data_loader):
@@ -188,111 +190,6 @@ class Trainer():
 
         return
 
-    def train_total(self):
-        # --------------------- Path Setting -------------------------------------------
-        self.logger.setLogger(self.device)
-        print('학습을 진행하는 기기:',self.device)
-        print("Model = train_total")
-        # --------------------- Load Dataset -------------------------------------------
-        # data_loader = self.getDataLoader_from_np(self.device)
-
-        # --------------------- Train -------------------------------------------
-        wt = [1, 1]
-        wt_40 = [1, 1]
-        self.setWeight(wt)
-        print("WT = {}".format(wt))
-        print("WT = {}".format(self.weight))
-
-        self.logger.wanna_log = self.weight
-        self.logger.makeLogDir()
-        self.logger.writeTrainingHead(self)
-
-        criterion = torch.nn.L1Loss(reduction="mean").to(self.device)
-        criterion_heat = torch.nn.NLLLoss(weight=torch.tensor([1,1], dtype=torch.float), reduction="mean").to(self.device)
-        criterion_heat_40 = torch.nn.NLLLoss(weight=torch.tensor([1,40], dtype=torch.float), reduction="mean").to(self.device)
-
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 2000)
-
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
-
-        self.model = self.model.to(self.device)
-        self.model.train()
-        d=delta_distance()
-        d.setDevice(self.device)
-        torch.autograd.set_detect_anomaly(True)
-        for epoch in range(70000):
-            epoch_start = time.time()
-
-            for data_set in self.datasets_path:
-                data_loader = self.getDataLoader_from_np(self.device, data_set)
-                print("DATASET IDX = {}".format(data_set))
-                for index, (data, target) in enumerate(data_loader):
-                    optimizer.zero_grad()  # gradient init
-                    target2 = self.getTarget_onlyLane(target.detach())
-                    delta_right_list, delta_right_exist_list = d.getDeltaRightMap(target2)
-                    delta_up_list, delta_up_exist_list = d.getDeltaVerticalMap(target2)
-
-                    #---------------------------- Get Loss ----------------------------------------
-                    output = self.model(data)
-                    # print("OUtput Shape {}".format(output.shape))
-                    # loss = []
-                    totalLoss=1e-9
-                    loss_dx=0
-                    loss_dy=0
-                    loss_seg=0
-                    loss__weighted_seg=0
-
-                    for idx, lane_tensor in enumerate(delta_right_exist_list):
-                        if len(lane_tensor)==0:
-                            continue
-                        selected_output = torch.index_select(output[idx,0],0, lane_tensor.to(self.device))
-                        selected_target = torch.index_select(delta_right_list[idx],0, lane_tensor.to(self.device))
-                        # loss.append(criterion(selected_output, selected_target.float()))
-                        loss_dx += criterion(selected_output, selected_target.float())
-                        # print(criterion(selected_output, selected_target.float()))
-                        # print(lane_tensor)
-
-                    for idx, lane_tensor in enumerate(delta_up_exist_list):
-                        if len(lane_tensor)==0:
-                            continue
-                        selected_output = torch.index_select(output[idx,1],1, lane_tensor.to(self.device))
-                        selected_target = torch.index_select(delta_up_list[idx],1, lane_tensor.to(self.device))
-                        # loss.append(criterion(selected_output, selected_target.float()))
-                        loss_dy += criterion(selected_output, selected_target.float())
-                        # print(criterion(selected_output, selected_target.float()))
-
-                    loss_seg = criterion_heat(F.log_softmax(output[:,[2,3]], dim=1), target2.long())
-                    loss_weighted_seg = criterion_heat_40(F.log_softmax(output[:,[2,4]], dim=1), target2.long())
-                    custom_heat_loss = self.getCustomHeatloss(output[:,[2,4]], target2.long())
-                    totalLoss = (loss_dx + loss_dy)*0.01 + loss_seg + loss_weighted_seg
-                    # print(totalLoss)
-                    totalLoss.backward()  # backProp
-                    optimizer.step()
-                    self.loss = totalLoss.item()
-                    #---------------------------- Logging ----------------------------------------
-
-                    self.dataUpdate(epoch, index)
-                    if index%10==0:
-                        self.logger.printTrainingLog(self)
-                        print("         loss_dx     = {}".format(loss_dx))
-                        print("         loss_dy     = {}".format(loss_dy))
-                        print("         loss_seg    = {}".format(loss_seg))
-                        print("         loss_seg_40 = {}".format(loss_weighted_seg))
-                    # end = time.time()
-                    # print("TOTAL {}".format(end-start))
-                    # print("ADDED {}".format(end2-start2))
-            # if True:
-            if epoch % 10 == 0:
-                time_str = "LOG!!  Time = {}".format(time.time() - epoch_start)
-                print(time_str)
-                self.logger.logging(self)
-                self.logger.saveTxt(time_str)
-
-        print("Train Finished.")
-
-        return
-
-
     def getTarget_ex(self, target):
         arr = target.detach().numpy()
         target_resize = np.array([])
@@ -325,14 +222,21 @@ class Trainer():
     def getDataLoader_from_np(self, device, path):
         print("DEVICE {}    PATH {}".format(device, path))
         x_train, x_test, y_train, y_test  = np.load( path , allow_pickle=True)
-        x_train = torch.from_numpy(x_train).float().to(device)
+        print(x_train.shape)
+        print(x_test.shape)
+
+        x_train = torch.from_numpy(x_train).to(device)#.float()#
+        x_test = torch.from_numpy(x_test).to(device)#.float()#
         y_train = torch.from_numpy(y_train).float().to(device)
-        train_dataset = TensorDataset(x_train.permute(0,3,1,2), y_train)
+        y_test = torch.from_numpy(y_test).float().to(device)
+
+        train_dataset = TensorDataset(torch.cat((x_train, x_test), 0).permute(0,3,1,2), (torch.cat((y_train, y_test), 0)))
         if self.cfg.backbone=="ResNet50":
             batch_size=4
         else:
-            batch_size=8
+            batch_size=4
         data_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
+        print("HERE? 11")
         
 #         print(x_train.requires_grad)
 #         print(y_train.requires_grad)
@@ -352,7 +256,7 @@ class Trainer():
         # --------------------- Load Dataset -------------------------------------------
        
         data_loader = self.getDataLoader_from_np()
-#         self.getModel()
+        #self.getModel()
 
         # print(self.model)
         # --------------------- Train -------------------------------------------
@@ -381,16 +285,16 @@ class Trainer():
     def getCustomHeatloss(self, output, target):
         output_log = F.log_softmax(output, dim=1)
         one_hot_target = F.one_hot(target).permute(0,3,1,2)
-        one_hot_target[:,1:,:]  *=60
+        one_hot_target[:,1:,:]  *= 60
         val = one_hot_target*output_log*torch.pow(1-F.softmax(output, dim=1), 2)
         custom_nll_loss = -val.sum()/(val.shape[0]*val.shape[1]*val.shape[2]*val.shape[3])
         # print(output_log)
-        # nll_loss = torch.nn.NLLLoss()
-        # official_nll_loss = nll_loss(output_log, target.long())
-        # print("CUSTOM")
-        # print(custom_nll_loss*2)
-        # print("Official")
-        # print(official_nll_loss)
+        nll_loss = torch.nn.NLLLoss()
+        official_nll_loss = nll_loss(output_log, target.long())
+        print("CUSTOM")
+        print(custom_nll_loss*2)
+        print("Official")
+        print(official_nll_loss)
 
         return custom_nll_loss
 
