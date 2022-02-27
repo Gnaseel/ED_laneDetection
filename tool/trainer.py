@@ -85,7 +85,12 @@ class Trainer():
                     # Custom Loss
                     # loss = self.getCustomHeatloss(self.model(data.float()), target2.long())
                     # Official Loss
-                    loss = criterion(F.log_softmax(self.model(data.float()), dim=1), target2.long())
+                    # print("!!!")
+                    # print(torch.__version__)
+                    # print(target2[0].shape)
+                    # nz = torch.nonzero(target2[0].long())
+                    # print(nz.shape)
+                    loss = criterion(F.log_softmax(self.model(data), dim=1), target2.long())
                     loss.backward()  # backProp
                     optimizer.step()
                     self.loss = loss.item()
@@ -93,8 +98,8 @@ class Trainer():
                     self.dataUpdate(epoch, index)
                     self.logger.printTrainingLog(self)
                     self.logger.saveTrainingtxt(self)
-            if True:
-            # if epoch % 10 == 0:
+            # if True:
+            if epoch % 5 == 0:
                 print("LOG!!")
                 self.logger.logging(self)
 
@@ -121,7 +126,7 @@ class Trainer():
         self.logger.writeTrainingHead(self)
 
         criterion = torch.nn.L1Loss(reduction="mean").to(self.device)
-        torch.nn.utils.clip_grad_norm_(self.model.parameters(), 2000)
+        # torch.nn.utils.clip_grad_norm_(self.model.parameters(), 2000)
 
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
 
@@ -225,16 +230,17 @@ class Trainer():
         print(x_train.shape)
         print(x_test.shape)
 
-        x_train = torch.from_numpy(x_train).to(device)#.float()#
-        x_test = torch.from_numpy(x_test).to(device)#.float()#
+        x_train = torch.from_numpy(x_train).float().to(device)##
+        # x_test = torch.from_numpy(x_test).to(device)#.float()#
         y_train = torch.from_numpy(y_train).float().to(device)
-        y_test = torch.from_numpy(y_test).float().to(device)
+        # y_test = torch.from_numpy(y_test).float().to(device)
 
-        train_dataset = TensorDataset(torch.cat((x_train, x_test), 0).permute(0,3,1,2), (torch.cat((y_train, y_test), 0)))
+        # train_dataset = TensorDataset(torch.cat((x_train, x_test), 0).permute(0,3,1,2), (torch.cat((y_train, y_test), 0)))
+        train_dataset = TensorDataset(x_train.permute(0,3,1,2), y_train)
         if self.cfg.backbone=="ResNet50":
             batch_size=4
         else:
-            batch_size=4
+            batch_size=8
         data_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
         print("HERE? 11")
         

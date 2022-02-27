@@ -47,10 +47,14 @@ class Inference():
         self.time_post_process= 0
 
     def inference_instance(self, img, filepath=""):
+        # print(cv2.__version__)
+        # print(cv2.__version__)
+        # print(cv2.path)
+        # return
         start_time = time.time()
-        img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
-        pl = PostProcess_Logic()
-        pl.device = self.device
+        img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))\
+        # pl = PostProcess_Logic()
+        # pl.device = self.device
         #Loop
         input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
         output_delta_tensor = self.model(input_tensor)
@@ -101,6 +105,7 @@ class Inference():
 
         #----------------------- Inference ---------------------------------------------
         my_lane_list, output_heat_tensor, output_delta_tensor = self.inference_instance(img, path)
+        # print(my_lane_list)
         imgSaver = ImgSaver(self.cfg)
         imgSaver.device = self.device
         imgSaver.save_image_deg_basic(img, output_delta_tensor, "del")                                    # circle, arrow, raw delta_map, delta_key
@@ -166,8 +171,8 @@ class Inference():
     def inference_dir_deg(self):
         start_idx=0
         end_idx=3000
-        # start_idx=200
-        # end_idx=250
+        start_idx=250
+        end_idx=300
         print_time_mode = False
         print_time_mode = True
         self.print_inference_option()
@@ -317,6 +322,7 @@ class Inference():
         print("Image gt_path   : {}".format(self.gt_path))
         
     def get_test_list_tuSimple(self):
+        # test_list_path = os.path.join(self.cfg.dataset_path, "test_label.json")
         test_list_path = os.path.join(self.cfg.dataset_path, "test_label.json")
         test_list = []
         # print(test_list_path)

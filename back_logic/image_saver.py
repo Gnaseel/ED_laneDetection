@@ -146,9 +146,9 @@ class ImgSaver:
             out_heat[0] = cv2.normalize(out_heat[0], None, 0, 255, cv2.NORM_MINMAX)
 
             th=0
-            cv2.imwrite(heat_fir_dir, (out_heat[1]+th)*10)
+            cv2.imwrite(heat_fir_dir, (out_heat[1]+th)*100)
             # cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
-            cv2.imwrite(heat_fir_dir_back, out_heat[0]*10)
+            cv2.imwrite(heat_fir_dir_back, out_heat[0])
             # gt_path = os.path.join("/workspace/data/tuSimple/seged_gt", *img_path.split(os.sep)[1:-1],"20.jpg")
             gt_path = os.path.join("/workspace/data/tuSimple/seged_gt", img_path)[:-3]+"png"
             print(gt_path)
@@ -168,6 +168,7 @@ class ImgSaver:
             cv2.imwrite(seged_fir_dir, seged_image)
 
         def save_image_deg_basic(self, image, output_image, fileName, delta_height=10, delta_threshold = 30):
+            # return
             delta_threshold_min=3
             # return
             output_image = output_image[0].permute(1,2,0).cpu().detach().numpy()
