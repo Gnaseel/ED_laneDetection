@@ -2,6 +2,12 @@ import torch
 import numpy as np
 import time
 import data.sampleColor as myColor
+from sklearn.cluster import MeanShift, estimate_bandwidth
+import matplotlib.pyplot as plt
+from scipy.signal import argrelextrema
+from scipy.signal import savgol_filter
+from scipy.signal import *
+from sklearn.neighbors import KernelDensity
 import cv2
 import math
 class Lane:
@@ -92,8 +98,9 @@ class Lane:
         return return_lane
 class LaneBuilder:
 
-    def __init__(self):
+    def __init__(self, args):
         self.device = torch.device('cpu')
+        self.cfg = args
         return
 
     # Key = [height, width], delta_image = 348*640 delta_up_image
@@ -137,16 +144,19 @@ class LaneBuilder:
             for j in range(10, heat_image.shape[1], 3):
                 if heat_image[i,j] > threshold:
                     width_list.append(j)
+
+
                 # get Key From delta
-                if j+11 > delta_right_image.shape[1] or j-11 < 0:
-                    continue
-                if  delta_threshold_min < delta_right_image[i,j] and delta_right_image[i,j] < delta_threshold:
-                    direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
-                    width_list.append(int(delta_right_image[i,j])*direction + j)
+                # if j+11 > delta_right_image.shape[1] or j-11 < 0:
+                #     continue
+                # if  delta_threshold_min < delta_right_image[i,j] and delta_right_image[i,j] < delta_threshold:
+                #     direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
+                #     width_list.append(int(delta_right_image[i,j])*direction + j)
+
             if len(width_list)==0:
                 continue
             # print("Height {} , Pre Key LIST {}".format(i, width_list))
-            point_list = self.widthCluster(width_list, i, 50)
+            point_list = self.widthCluster(width_list, i, 30, use_mean_width=False)
             # print("Height {} , PPPPP Key LIST {}".format(i, point_list))
             # print("Key LIST {}".format(point_list))
             # lane_in_height[count] +=1
@@ -154,47 +164,37 @@ class LaneBuilder:
                 key_list.append(point_list)
         return key_list
 
-    def getKeyfromHeat22(self, heat_image,delta_right_image, min_height, threshold=-3):
-        threshold = -5
-        delta_threshold_min = 3
-        delta_threshold = 20
+    def getKeyfromHeat_adaptiveThreshold(self, heat_img,delta_right_image, min_height, max_height, threshold, width=40):
 
         key_list=[]
         height_delta=5
-        for i in range(min_height, heat_image.shape[0], height_delta):
-            width_list=[]
-            for j in range(10, heat_image.shape[1], 3):
-                # get Key From delta
-                if j+11 > delta_right_image.shape[1] or j-11 < 0:
-                    continue
-                if  delta_threshold_min < delta_right_image[i,j] and delta_right_image[i,j] < delta_threshold:
-                    direction= -1 if delta_right_image[i,j+3] > delta_right_image[i,j-3] else 1
-                    width_list.append(int(delta_right_image[i,j])*direction + j)
-
-
-            # if len(width_list)==0:
-            #     continue
-            point_list = None
-            # print("[get Key] HEIGHT {}, TH = {}". format(i, threshold))
-            threshold-=2
-            while point_list is None and threshold < 10:
-                heat_width_list=[]
-                threshold+=2
-                for j in range(10, heat_image.shape[1], 3):
-                    if heat_image[i,j] > threshold:
-                        heat_width_list.append(j)
-                if len(heat_width_list)==0:
-                    break
-                point_list = self.widthCluster(heat_width_list, i, 30)
-                # if point_list is None:
-                #     print("TH UP !! {}".format(threshold))
-            if len(width_list+heat_width_list)==0:
+        for height in range(min_height, max_height, height_delta):
+            newnew = (heat_img[height]-heat_img[height].min())/(heat_img[height].max()-heat_img[height].min())
+            if height<190:
+                threshold = 0.93
+                width = 20
+            elif height <250:
+                threshold = 0.80
+                width = 60
+            else:
+                threshold = 0.80
+                width = 80
+            abc = torch.where(newnew>threshold)
+            # 
+            a =np.array(abc[0]).reshape(-1, 1)
+            kde = KernelDensity(kernel='gaussian', bandwidth=3).fit(a)
+            s = np.linspace(0,heat_img.shape[1], heat_img.shape[1])
+            e = kde.score_samples(s.reshape(-1,1))
+            mi, ma = argrelextrema(e, np.less)[0], argrelextrema(e, np.greater)[0]
+            maa =  find_peaks(heat_img[height].detach().numpy())
+            # maa = argrelextrema(nnn, np.greater)[0]
+            # print("     MA = {}".format(ma.tolist()))
+            heat_width_list = ma
+            if heat_width_list is None or len(heat_width_list)==0:
                 continue
-            # point_list = self.widthCluster2(sorted(width_list+heat_width_list), i, 30)
-            point_list = self.widthCluster2(sorted(self.addDelta2Heat(width_list, heat_width_list)), i, 30)
-
-            if point_list is not None:
-                key_list.append(point_list)
+            horizon_heat_key = self.widthCluster(ma, height, width, use_mean_width=False)
+            if horizon_heat_key is not None:
+                key_list.append(horizon_heat_key)
         return key_list
 
     def addDelta2Heat(self, delta_list, heat_list):
@@ -238,7 +238,7 @@ class LaneBuilder:
         lane_data.lane_idx = lane_idx_temp
         # print(lane_data.lane_idx)
         return lane_data
-    def predict_horizon_v2(self, heat_img, lane_data, bottom_height, top_height):
+    def predict_horizon_v2(self, heat_img, lane_data, bottom_height, top_height, Trad = False):
         lane_data = self.sort_lane(lane_data)
         # print(lane_data.lane_idx)
 
@@ -251,37 +251,101 @@ class LaneBuilder:
         # print("Lane Count = {}".format(lane_data.lanes_num))
         # top_height = 150
         doubled_lane = []
-        for height in range(bottom_height, top_height, -5):
+        temp_key_return = []
+        height_delta=-5
+        height = bottom_height
+        # print("TOP = {}".format(top_height))
+        for height in range(bottom_height, top_height, height_delta):
+            sum_th = 0
+            count_th=0
+        # while height >= top_height:
+        #     height +=  height_delta
+            # if height < 150:
+            #     height_delta= -3
+
             width_list=[]
             # horizon_heat_key=[]
             pradicted_lane_key=[]
             notFound_lane_idx=[]
 
-
             horizon_heat_key = None
-            # print("[get Key] HEIGHT {}, TH = {}". format(i, threshold))
-            threshold-=1
-            while horizon_heat_key is None and threshold < 10:
-                heat_width_list=[]
-                threshold+=1
+            if not Trad:
+                threshold = -1
+                # print("[get Key] HEIGHT {}, TH = {}". format(height, threshold))
+
+                threshold-=0.5
+
+                while False:
+                # while horizon_heat_key is None and threshold < 5:
+                    heat_width_list=[]
+                    threshold+=0.5
+                    ## 1. Get Key
+                    for j in range(30, heat_img.shape[1]-30, 1):
+                        # if  heat_img[height,j] > -2: #prev
+                        if  heat_img[height,j] > threshold:
+                            heat_width_list.append(j)
+
+                    if len(heat_width_list)==0:
+                        break
+                    # print(heat_width_list)
+                    # horizon_heat_key = self.widthCluster(heat_width_list, height,5, use_mean_width=False)
+                    horizon_heat_key = self.widthCluster(heat_width_list, height, 5,  use_mean_width=True)
+
+
+                newnew = (heat_img[height]-heat_img[height].min())/(heat_img[height].max()-heat_img[height].min())
+                abc = torch.where(newnew>0.93)
+                # 
+                a =np.array(abc[0]).reshape(-1, 1)
+                kde = KernelDensity(kernel='gaussian', bandwidth=3).fit(a)
+                s = np.linspace(0,heat_img.shape[1], heat_img.shape[1])
+                e = kde.score_samples(s.reshape(-1,1))
+                mi, ma = argrelextrema(e, np.less)[0], argrelextrema(e, np.greater)[0]
+                maa =  find_peaks(heat_img[height].detach().numpy())
+                # maa = argrelextrema(nnn, np.greater)[0]
+                # print("     MA = {}".format(ma.tolist()))
+                heat_width_list = ma
+                if heat_width_list is None or len(heat_width_list)==0:
+                    continue
+                horizon_heat_key = self.widthCluster(ma, height, 20,  use_mean_width=True)
+                # print("RAW {}".format(heat_width_list))
+
+                # ma = ma.reshape(-1,1)
+                # ma = np.pad(ma, ((0,0),(1,0)), 'constant', constant_values=height)
+
+                # print("     ORI = {}".format(horizon_heat_key))
+                # print("     ORI = {}".format(type(horizon_heat_key)))
+                # return
+                # horizon_heat_key = ma
+                sum_th+=threshold
+                count_th+=1
+                # print("Height = {}, th = {}".format(height, threshold))
+                # print(horizon_heat_key)
+                if horizon_heat_key is not None:
+                    temp_key_return.append(horizon_heat_key)
+                    # temp_key_return.append(horizon_heat_key)
+            # Trad
+            if Trad:
                 ## 1. Get Key
+                heat_width_list=[]
                 for j in range(10, heat_img.shape[1], 3):
-                    # if  heat_img[height,j] > -2: #prev
-                    if  heat_img[height,j] > threshold:
+                    if  heat_img[height,j] > 0: #prev
+                    # if  heat_img[height,j] < heat_threshold:
                         heat_width_list.append(j)
-
                 if len(heat_width_list)==0:
-                    break
-                horizon_heat_key = self.widthCluster(heat_width_list, height, 10, True)
-                # if horizon_heat_key is None:
-                    # print("TH UP !! {}".format(threshold))
+                    continue
+                # print(heat_width_list)
+                # horizon_heat_key = self.widthCluster(heat_width_list, height,5, use_mean_width=False)
+                horizon_heat_key = self.widthCluster(heat_width_list, height, 30)
+
+                # print(horizon_heat_key)
+                if horizon_heat_key is not None:
+                    temp_key_return.append(horizon_heat_key)
+  
 
 
-            # print("PRE  {} / {}".format(height, heat_width_list))
-            # horizon_heat_key = self.widthCluster(heat_width_list, height,10)
-            # print("POST {} / {}".format(height, horizon_heat_key))
             if horizon_heat_key is None or len(horizon_heat_key)==0:
                 continue
+            # print(horizon_heat_key)
             ## 2. Predicte Key
             key_min = [ 1000 for i in range(len(horizon_heat_key))]
             for idx, lane in enumerate(lane_data.lane_list):
@@ -309,7 +373,6 @@ class LaneBuilder:
                 # print("DX = {}".format(dx))
                 delta_width = lane[last_idx_of_lane,1] + dx
                 min=1000
-                # !!!!!!!!!!!!!!!!!!
                 predicted_key = [height, delta_width] 
                 # predicted_key = None
                 for heat_key_idx, heat_key in enumerate(horizon_heat_key):
@@ -327,34 +390,22 @@ class LaneBuilder:
                         deg = self.getLaneAngle(point1, point2, point3)
                     deg -=180
                     # if deg < 145 or deg > 250:
-                    if abs(deg) > 50:
+                    if abs(deg) > 70:
                         continue
 
 
-                    if min>dist and dist < 20 and dist < key_min[heat_key_idx]:
+                    if min>dist and dist < 50 and dist < key_min[heat_key_idx]:
                         min=dist
                         key_min[heat_key_idx]=dist
                         # predicted_key = [height, int(heat_key[1]*0.8+delta_width*0.2)]
-                        predicted_key = [height, int(heat_key[1])]
+                        predicted_key = [height-dy, int(heat_key[1])]
                         # print("     Changed !! {} {}".format(predicted_key, idx))
 
                 
                 if predicted_key is not None:
-                    # lane_data.addKey(predicted_key, idx)
-                    # print("ADD!! {} {}".format(predicted_key, idx))
                     pradicted_lane_key.append([predicted_key, idx])
-                # else:
-                #     notFound_lane_idx.append(idx)
-                #     pradicted_lane_key.append([predicted_key, idx])
-                # print("==========")
 
-            ## 3. Post process (lane that has no key)
-            # for idx in notFound_lane_idx:
-            #     lane = lane_data.lane_list[idx]
-            #     if lane_data.lane_idx[idx]>1:
-            #         predicted_key = [height, ]
-            #     pradicted_lane_key.append([predicted_key, idx])
-                
+
             ## 4. Add key
             for idx, lane in enumerate(pradicted_lane_key):
                 lane_data.addKey(lane[0], lane[1])
@@ -364,12 +415,6 @@ class LaneBuilder:
             for idx in range(lane_data.lanes_num-1):
                 if idx in doubled_lane:
                     continue
-                # print("IAM     {}".format(idx))
-                # print("DOUBLED {}".format(len(doubled_lane)))
-                # print("lanes num {}".format(lane_data.lanes_num))
-                # print("IDX")
-                # print(lane_data.lane_list[idx])
-                # print(lane_data.lane_idx[idx])
                 next_idx = idx+1
                 while next_idx in doubled_lane:
                     next_idx +=1
@@ -387,76 +432,124 @@ class LaneBuilder:
                     # print("Abscissa {} / {}".format(lane_abscissa, next_abscissa))
             if len(doubled_lane)+1 == lane_data.lanes_num:
                 break
-        return lane_data
+        # if not Trad:
+        #     print("     mean TH = {}".format(sum_th/count_th))
+        
+        return lane_data, temp_key_return
     def getMaxHeight(self, heat_img):
         max_height = 80
         for idx, height in enumerate(heat_img):
             # print(height.shape)
             # print(type(height))
-            if np.max(height)>-3:
+            if np.max(height)>0:
                 # print("MAX HEIGHT = {}".format(idx))
                 return idx
         return max_height
     
     # key_list = [ [height,width] * n_of_key ] * n_of_height
+    # heat_img = [ background_img, lane_img ]
     def getLanefromHeat(self, heat_img, delta_img, temp_raw_image=None):
+        draw_mode = True
+        # draw_mode = False
         th=-3
-        heat_lane = heat_img[0].cpu()*100
+        heat_lane = heat_img[0].cpu()
         heat_lane2 = heat_img[1].cpu()
-        # cv2.imwrite("SIBAL22.png",heat_img[0].cpu().detach().numpy()*10)
-        # cv2.imwrite("SIBAL33.png",heat_img[1].cpu().detach().numpy()*10)
-        compat_heat = torch.where(heat_img[0] < heat_img[1], torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
 
-        # key_list = 3d list height * key * [height,width]
-        # key_list=self.getKeyfromHeat_pre(compat_heat, delta_img[:,:,0], 170) # 84.0
-        # key_list=self.getKeyfromHeat(heat_lane, delta_img[:,:,0], 170, -1) # 82.9
-        key_list=self.getKeyfromHeat22(heat_lane2, delta_img[:,:,0], 170, 3) # 82.9
+        compat_heat = torch.where(heat_img[0] < heat_img[1], torch.tensor(10).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
+        max_height = self.getMaxHeight(compat_heat)
+
+
+        # key_list=self.getKeyfromHeat(compat_heat, delta_img[:,:,0], 200, 0)  #Trad
+        key_list=self.getKeyfromHeat_adaptiveThreshold(heat_lane2, delta_img[:,:,0], max_height, heat_lane2.shape[0]-20, 0.8, 40) # Adaptive_threshold
+        # key_list2=self.getKeyfromHeat_adaptiveThreshold(heat_lane2, delta_img[:,:,0], 160, 200, 0.93, 20) # Adaptive_threshold
+
         # print(key_list)
-        resized_raw_img = cv2.resize(temp_raw_image,(640,368) )
-        for height in key_list:
-            # print(key)
-            for key in height:
-                resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
-                            # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
-        # cv2.imwrite("keys2.png",resized_raw_img)
-
-        # key_list = key_list[3:10]
+        # key_list = key_list+key_list2
         lane_data = Lane()
         lane_data = self.buildLane(key_list,  delta_img[:,:,1])
+        lane_data2 = Lane()
+        lane_data2 = self.buildLane(key_list,  delta_img[:,:,1])
 
-        # self.temp_lane_drawer_laneObject(temp_raw_image.copy(), lane_data, "temptemp2")
-
+        # max_height = self.getMaxHeight(heat_lane2.detach().numpy())
+        heat_np = heat_lane2.detach().numpy()
+        heat_com_np = heat_lane2.detach().numpy()
+        for height in range(heat_np.shape[0]):
+            heat_np[height] = heat_np[height]*(255.0/heat_np[height].max())
+        time.sleep(1.0)
+        cv2.imwrite("data/heat.png",heat_np)
+        cv2.imwrite("data/heat_com.png",compat_heat*100)
         
-        max_height = self.getMaxHeight(heat_lane2.detach().numpy())
-        lane_data = self.predict_horizon_v2(heat_lane2, lane_data, 165, max_height) #STD 80
-
+        
+        # lane_data2, up_key_list = self.predict_horizon_v2(compat_heat, lane_data, 195, max_height, Trad = True) #STD 80
+        lane_data2, up_key_list2 = self.predict_horizon_v2(compat_heat, lane_data2, 5, max_height, Trad = True) #STD 80
+        lane_data, up_key_list = self.predict_horizon_v2(heat_lane2, lane_data, 5, max_height, Trad = False) #STD 80
+        
+        # print(up_key_list)
+        # for height in up_key_list:
+        #     print(height)
         new_list = lane_data.tensor2lane()
         new_list.sort(key=len, reverse=True)
+        re_list=[]
+        for item in new_list:
+            if len(item) > 5:
+                re_list.append(item)
 
-        new_list = self.getLanebyH_sample_deg(new_list, 160, 710, 10)
+        if self.cfg.dataset == "tuSimple":
+            re_list = self.getLanebyH_sample_deg(re_list, 160, 710, 10)
+
+        if self.cfg.dataset == "cuLane":
+            for lane in re_list:
+                for node in lane:
+                    node[0] = int(node[0]/300*590)
+                    node[1] = int(node[1]/800*1640)
+        # elif self.cfg.dataset == "cuLane":
+        #     continue
+
+        # cv2.imwrite("SIBAL22.png",heat_img[0].cpu().detach().numpy()*10)
+        # cv2.imwrite("SIBAL33.png",heat_img[1].cpu().detach().numpy()*10)
         # self.temp_Key_drawer(temp_raw_image.copy(), key_list)
-        return new_list
+        draw_mode = False 
+        if draw_mode:
+            if self.cfg.dataset=="tuSimple":
+                output_size = (640, 368)
+            elif self.cfg.dataset=="cuLane":
+                output_size = (800, 300)
+            resized_raw_img = cv2.resize(temp_raw_image, output_size)
+            for height in key_list:
+                # print(key)
+                for key in height:
+                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
+                                # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
+            cv2.imwrite("data/keys2.png",resized_raw_img)
 
-    def extendLane(self, lane_list):
-        for idx, lane in enumerate(lane_list):
-            # print("----------")
-            # print(lane_list[idx])
-            if len(lane)<5:
-                continue
-            height=lane[0][0]+5
-            width =lane[0][1]
-            delta = int((lane[0][1] - lane[4][1])/4)
-            extend_list=[]
+            resized_raw_img = cv2.resize(temp_raw_image, output_size)
+            for height in up_key_list:
+                # print(key)
+                for key in height:
+                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
+                                # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
+            cv2.imwrite("data/keys_up2.png",resized_raw_img)
+            resized_raw_img = cv2.resize(temp_raw_image, output_size)
+            all_key = up_key_list+key_list
+            for height in all_key:
+                # print(key)
+                for key in height:
+                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
+                                # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
+            cv2.imwrite("data/keys_all.png",resized_raw_img)
             
-            while height < 370 and( 0<width and width <640):
-                extend_list.append([height, width+delta])
-                height += 5
-                width += delta
-            extend_list.reverse()
-            lane_list[idx] = extend_list + lane_list[idx]
-            # print(lane_list[idx])
-            # if lane[0]
-        return lane_list
+            all_key2 = up_key_list2+key_list
+            for height in all_key2:
+                # print(key)
+                for key in height:
+                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
+                                # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
+            cv2.imwrite("data/keys_all2.png",resized_raw_img)
+            self.temp_lane_drawer_laneObject(temp_raw_image.copy(), lane_data, "data/temptemp2")
+
+        return re_list
+
+
     def getLaneAngle(self, point1, point2, point3):
         at1 = math.atan2((point1[0]-point2[0]), (point1[1]-point2[1]))
         at2 = math.atan2((point3[0]-point2[0]), (point3[1]-point2[1]))
@@ -468,27 +561,25 @@ class LaneBuilder:
         # print(deg)
         return deg
     def buildLane(self, key_list,  delta_up_image):
-        key_list.reverse()
+        key_list_copy = key_list.copy()
+        key_list_copy.reverse()
         # key_up_list.reverse()
         lane_data = Lane()
-        if len(key_list)==0:
+        if len(key_list_copy)==0:
             return lane_data
         # First Update
-        for idx, first_key in enumerate(key_list[0]):
+        for idx, first_key in enumerate(key_list_copy[0]):
             # print(first_key)
             lane_data.lane_list[idx, 0] =  np.array(first_key)
             # lane_data.addCount(idx)
             # up_lane = self.getUpLane(first_key, delta_up_image)
             lane_data.addKey(first_key, idx)
             lane_data.lanes_num +=1
-        # print("========================")
-        # print(key_list[0])
-        # print("========================")
-        # print(key_list[1])
 
-        # keys = key of One height, key_list = key of All height
+
+        # keys = key of One height, key_list_copy = key of All height
         temp = 0
-        for keys in key_list[1:]:
+        for keys in key_list_copy[1:]:
             # print("KEYS {}".format(keys))
             # lane_data.printLane()
 
@@ -499,7 +590,20 @@ class LaneBuilder:
                 for idx, lane in enumerate(lane_data.lane_list):
                     if lane_data.lane_idx[idx] == 0:
                         continue
-                    dist = abs(lane[lane_data.lane_idx[idx]-1, 1] - key[1])
+
+                    if lane_data.lane_idx[idx] >=4:
+                        dx = lane[lane_data.lane_idx[idx] - 1 ,1] - lane[lane_data.lane_idx[idx] - 2 ,1] 
+                        dx += lane[lane_data.lane_idx[idx] - 2 ,1] - lane[lane_data.lane_idx[idx] - 3 ,1] 
+                        dx += lane[lane_data.lane_idx[idx] - 3 ,1] - lane[lane_data.lane_idx[idx] - 4 ,1] 
+                        dx /=3
+                        dy = lane[lane_data.lane_idx[idx] - 2 ,0] - lane[lane_data.lane_idx[idx] - 1 ,0]
+                        delta_height = abs(lane[lane_data.lane_idx[idx] - 1 ,0] - key[0])
+                        delta_width = dx*(delta_height/(dy+0.01))
+                    else:
+                        delta_width = 0
+                    # delta_width = lane[lane_data.lane_idx[idx]-1,1] + dx
+                    
+                    dist = abs(lane[lane_data.lane_idx[idx]-1, 1]+delta_width - key[1])
                     height_dist = abs(lane[lane_data.lane_idx[idx]-1, 0] - key[0])
 
                     # print("         LANE {}, Key =  {}".format(lane[lane_data.lane_idx[idx]-1, 1], key))
@@ -514,19 +618,18 @@ class LaneBuilder:
                         deg = self.getLaneAngle(point1, point2, point3)
                     deg -=180
                     # if deg < 145 or deg > 250:
-                    if abs(deg) > 50:
+                    if abs(deg) > 65 and lane_data.lane_idx[idx]>3 and abs(lane[lane_data.lane_idx[idx]-1, 1] - key[1]) > 50:
                         continue
                         
-                    if dist < min_dist and height_dist < 30:
+                    if dist < min_dist and height_dist < 40:
                         min_dist = dist
                         added_idx = idx
                         # print("Mindist - {}".format(min_dist))  
                 
-                if min_dist < 40:
+                if min_dist < 50:
                     # print(" Added Idx - {}".format(added_idx))  
                     # print(lane_data.lane_idx)      
                     lane_data.lane_list[ added_idx, lane_data.lane_idx[added_idx]] = key
-                    up_lane = self.getUpLane(key, delta_up_image)
                     lane_data.addKey(key, added_idx)
                 else:
                     # print("KEY {}".format(key))
@@ -627,11 +730,10 @@ class LaneBuilder:
         self.lane_list=lane_list
         return lane_list
 
-
     ## Point Clustering (width)
-    def widthCluster(self, width_list, height, distBTlane=20, anyoneOption = False):
+    def widthCluster(self, width_list, height, distBTlane=20,  use_mean_width = False):
         point_list=[]
-        dist_buffer=[]
+        width_buffer=[]
         count=1
             
         buf_count=1
@@ -646,7 +748,7 @@ class LaneBuilder:
                 count +=1
                 point_list.append([height, int(buf/buf_count)])
                 if last + distBTlane*2 > idx:
-                    dist_buffer.append(max_value-min_value)
+                    width_buffer.append(max_value-min_value)
                 # print("     COUNT {}".format(buf_count))
                 # print("         min_value {} LAST {}  MAX_value {}, DIst {}".format(min_value, last, max_value, max_value-min_value))
 
@@ -665,17 +767,15 @@ class LaneBuilder:
         if buf_count != 0:
             # print("     22COUNT {}".format(buf_count))
             # print("         min_value {} MAX_value {}, DIst {}".format(min_value, max_value, max_value-min_value))
-            dist_buffer.append(max_value-min_value)
+            width_buffer.append(max_value-min_value)
             point_list.append([height, int(buf/buf_count)])
-        dist_mean = sum(dist_buffer)/len(dist_buffer)
-        # print("DIST = {}".format(dist_mean))
+
+        # dist_mean = mean of each lane width
+        width_mean = sum(width_buffer)/len(width_buffer)
+        # print("DIST = {}".format(width_mean))
         # 30 40 97.63
         # 40 40 97.60
-        if dist_mean>30 or (anyoneOption and max(dist_buffer) > 40 ):
-            # print("         DIST Too Big!!")
-            # print("         DIST Too Big!!")
-            # print("         DIST Too Big!!")
-            # print("         DIST Too Big!!")
+        if (width_mean>20 or ( max(width_buffer) > 20 )) and use_mean_width:
             return None
         return point_list
 

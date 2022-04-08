@@ -150,7 +150,7 @@ class ImgSaver:
             # cv2.imwrite(heat_fir_dir_back, (out_heat[0]+th)*10)
             cv2.imwrite(heat_fir_dir_back, out_heat[0])
             # gt_path = os.path.join("/workspace/data/tuSimple/seged_gt", *img_path.split(os.sep)[1:-1],"20.jpg")
-            gt_path = os.path.join("/workspace/data/tuSimple/seged_gt", img_path)[:-3]+"png"
+            gt_path = os.path.join("/workspace/data/tuSimple/seg_label", os.path.join(*img_path.split(os.sep)[1:]))[:-3]+"png"
             print(gt_path)
             print(gt_path)
             print(img_path)
@@ -294,7 +294,7 @@ class ImgSaver:
                 key_list.append(point_list)
                 key_up_list.append(point_up_list)
             key_up_list = key_up_list[1:]
-            builder = LaneBuilder()
+            builder = LaneBuilder(self.cfg)
             lane_data = Lane()
             lane_data = builder.buildLane(key_list,  delta_up_image)
             for idx, lane in enumerate(lane_data.lane_list):
@@ -480,6 +480,7 @@ class ImgSaver:
                     if lane[idx2] > 0:
                         raw_img = cv2.circle(raw_img, (int(lane[idx2]),int(height)), 5, myColor.color_list[idx if idx <=10 else 10], -1)
             return raw_img
+        
         def save_image_delta(self, image, output_image, fileName, delta_height=10, delta_threshold = 50):
             # return
             output_image = output_image.cpu().detach().numpy()
@@ -514,7 +515,7 @@ class ImgSaver:
                 # output_tensor = model(input_tensor)
                 # m = torch.nn.Softmax(dim=0)
                 # cls_soft = torch.max(m(output_tensor[0][:]).detach(), 0)
-                score = Scoring()
+                score = Scoring(self.cfg)
                 score.prob2lane(img_idx, img_val, 40, 350, 5 )
                 score.getLanebyH_sample(160, 710, 10)
                 path_list = file.split(os.sep)
@@ -564,3 +565,37 @@ class ImgSaver:
             m = torch.nn.Softmax(dim=0)
             cls_soft = torch.max(m(output_tensor[0][:]).detach(), 0)
             return cls_soft
+
+        def img_keypoint_save(self, img_path, keypoint, file_name="keypoint", color=0, extention = "gt"):
+            save_name_list = file_name.split(os.sep)
+            save_name_list.insert(-1, extention)
+            save_name_list = "_".join(save_name_list)
+            path = "./data/keyPoint"
+            save_path = os.path.join(path,save_name_list)
+            img = cv2.imread(img_path)
+            print(keypoint)
+
+            for key_list in keypoint:
+                for idx, key in enumerate(key_list):
+                    if key>0:
+                        img = cv2.circle(img, (int(key),int(idx*10+160)), 3, myColor.color_list[color], -1)
+            cv2.imwrite(save_path, img)
+            return
+        # def img_keypoint_save_v2(self, img_path, keypoint_list, file_name="keypoint", extention = "trad"):
+        def img_keypoint_save_v2(self, img_path, keypoint_list, file_name="keypoint", extention = ""):
+            save_name_list = file_name.split(os.sep)
+            save_name_list.insert(-1, extention)
+            save_name_list = "_".join(save_name_list)
+            path = "./data/keyPoint"
+            save_path = os.path.join(path,save_name_list)
+            img = cv2.imread(img_path)
+            # print(keypoint_list)
+
+            for color_idx, keypoint in enumerate(keypoint_list):
+                for key_list in keypoint:
+                    for idx, key in enumerate(key_list):
+                        if key>0:
+                            img = cv2.circle(img, (int(key),int(idx*10+160)), 3, myColor.color_list[color_idx], -1)
+            cv2.imwrite(save_path, img)
+
+            return 

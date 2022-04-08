@@ -1,5 +1,11 @@
 # --------------------------------------------------------------------
+
+dataset = "tuSimple"
 dataset_path = "/workspace/data/tuSimple"
+# dataset = "cuLane"
+# dataset_path = "/workspace/data/cuLane"
+
+output_path = "/workspace/src/ED_laneDetection/data/cuLane"
 
 weight_file_path = "/workspace/src/weight_files"
 delta_weight_file = "SCNN_delta_18/epoch_240_index_339.pth"
@@ -7,9 +13,13 @@ delta_weight_file = "SCNN_delta_18/epoch_240_index_339.pth"
 # heat_weight_file = "SCNN_heat_18/epoch_200_index_339.pth"
 # heat_weight_file = "SCNN_heat_18/epoch_400_index_339.pth"
 # heat_weight_file = "SCNN_heat_18/epoch_500_index_339.pth"
-heat_weight_file = "SCNN_heat_18/epoch_600_index_339.pth"
+# heat_weight_file = "SCNN_heat_18/epoch_600_index_339.pth"
 heat_weight_file = "SCNN_heat_18/epoch_195_index_339.pth"
 # heat_weight_file = "SCNN_heat_18/epoch_10_index_362.pth"
+
+# heat_weight_file = "SCNN_heat_18/epoch_80_index_238_20.pth"
+# heat_weight_file = "SCNN_heat_18/epoch_85_index_238.pth"
+# heat_weight_file = "SCNN_heat_18/epoch_125_index_238.pth"
 
 
 
@@ -36,6 +46,16 @@ image_path = "clips/0530/1492635099561765072_0/20.jpg"
 image_path = "clips/0601/1494453643540652356/20.jpg"
 image_path = "clips/0531/1492635492425508308/20.jpg"
 image_path = "clips/0530/1492628191053876037_0/20.jpg"
+
+# chi
+image_path = "clips/0531/1492636071712874645/20.jpg"
+
+
+image_path = "clips/0530/1492638429024449894_0/20.jpg"
+image_path = "clips/0531/1492628664370406195/20.jpg"
+image_path = "clips/0530/1492627841265914733_0/20.jpg"
+image_path = "clips/0530/1492626485953676547_0/20.jpg"
+
 # 0530__raw
 # clips/0530//20
 # 0530__raw0531__raw

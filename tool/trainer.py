@@ -20,7 +20,7 @@ class Trainer():
 
     def __init__(self, args):
         print("self")
-        self.dataset_path = "D:\\lane_dataset\\image_data_0816.npy"
+        # self.dataset_path = "D:\\lane_dataset\\image_data_0816.npy"
         # self.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/image_data_0816.npy"
         self.model_path = ""
         self.log_path = ""
@@ -36,8 +36,8 @@ class Trainer():
         # self.datasets_path_list=[0 for i in range(0,100)]
         self.dataset_dir="./data/"
         self.datasets_path_list=[]
-        # self.datasets_path_list.append(self.dataset_dir+"img_culane_0215_40.npy")
-        self.datasets_path_list.append(self.dataset_dir+"img_tuSimple_0215.npy")
+        self.datasets_path_list.append(self.dataset_dir+"img_culane_0404_35.npy")
+        # self.datasets_path_list.append(self.dataset_dir+"img_tuSimple_0215.npy")
     
     def train_seg(self):
         # --------------------- Path Setting -------------------------------------------
@@ -51,7 +51,7 @@ class Trainer():
         # data_loader = self.getDataLoader_from_np(self.device)
 
         # --------------------- Train -------------------------------------------
-        wt = [1,40]
+        wt = [1,20]
         self.setWeight(wt)
         print("WT = {}".format(wt))
         print("WT = {}".format(self.weight))
@@ -65,6 +65,8 @@ class Trainer():
 
         self.model = self.model.to(self.device)
         self.model.train()
+
+        min_loss = 999
         # print("HERE 1")
         for epoch in range(70000):
             # print("HERE 2")
@@ -79,18 +81,31 @@ class Trainer():
                     # print("HERE 4")
 
                     optimizer.zero_grad()  # gradient init
-                    # print(target.shape)
 
-                    target2 = self.getTarget_single(target.detach())
-                    # Custom Loss
-                    # loss = self.getCustomHeatloss(self.model(data.float()), target2.long())
-                    # Official Loss
-                    # print("!!!")
-                    # print(torch.__version__)
-                    # print(target2[0].shape)
-                    # nz = torch.nonzero(target2[0].long())
-                    # print(nz.shape)
-                    loss = criterion(F.log_softmax(self.model(data), dim=1), target2.long())
+
+                    # print("data = {}".format(data.shape))
+
+                    # output = self.model(data[:,:,:,400:800])
+                    # output = F.log_softmax(self.model(data[:,:,:,400:800]), dim=1)
+                    output = F.log_softmax(self.model(data), dim=1)
+                    input_sample = data[0].detach().cpu().numpy().transpose(1,2,0)
+                    gt_sample = target[0].detach().cpu().numpy()*1000
+                    # print(input_sample.shape)
+                    # print(output_sample.shape)
+                    # print(gt_sample.shape)
+                    compat = np.copy(gt_sample)
+                    compat = np.where(output[0,0].cpu() > output[0,1].cpu(), 0, 255)
+                    cv2.imwrite("./data/sample_input_cu2.jpg", input_sample)
+                    cv2.imwrite("./data/sample_output_cu2.jpg", output[0, 1].detach().cpu().numpy()*100)
+                    # cv2.imwrite("./data/sample_output3.jpg", output[0, 1].detach().cpu().numpy()*1000)
+                    # cv2.imwrite("./data/sample_output4.jpg", output[0, 0].detach().cpu().numpy()*1000)
+                    # cv2.imwrite("./data/sample_output5.jpg", output[0, 0].detach().cpu().numpy())
+                    # cv2.imwrite("./data/sample_output6.jpg", output[0, 1].detach().cpu().numpy())
+                    cv2.imwrite("./data/compat_output_cu2.jpg",compat)
+                    cv2.imwrite("./data/sample_gt_cu2.jpg", gt_sample)
+                    print(torch.unique(target.long()))
+                    # return
+                    loss = criterion(output, target.long())
                     loss.backward()  # backProp
                     optimizer.step()
                     self.loss = loss.item()
@@ -101,6 +116,7 @@ class Trainer():
             # if True:
             if epoch % 5 == 0:
                 print("LOG!!")
+                # if loss.item()
                 self.logger.logging(self)
 
         print("Train Finished.")
@@ -205,9 +221,9 @@ class Trainer():
         target_reTensor = torch.tensor(torch.from_numpy(target_resize).float(), requires_grad=False)        
         return target_reTensor
     
-    def getTarget_single(self, target):
+    def getTarget_single(self, target, shape=[368, 640]):
         target2 = torch.unsqueeze(target, 1)
-        target3 = torch.squeeze(nnf.interpolate(target2, size=(368, 640), mode='nearest'))
+        target3 = torch.squeeze(nnf.interpolate(target2, size=(shape[0], shape[1]), mode='nearest'))
         return target3
     def getTarget_onlyLane(self, target):
         target2 = torch.unsqueeze(target, 1)
@@ -242,7 +258,6 @@ class Trainer():
         else:
             batch_size=8
         data_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
-        print("HERE? 11")
         
 #         print(x_train.requires_grad)
 #         print(y_train.requires_grad)

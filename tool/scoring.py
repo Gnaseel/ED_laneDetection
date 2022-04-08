@@ -1,15 +1,17 @@
 from sklearn.cluster import MeanShift, estimate_bandwidth
 from back_logic.evaluate import EDeval
+from evaluator.lane import LaneEval
 import torch
 import glob
 import time
 import os
 import numpy as np
+from pathlib import Path
 import cv2
 import math
 class Scoring():
-    def __init__(self):
-
+    def __init__(self, args):
+        self.cfg = args
         self.imagePath=""
         self.outputPath=""
         self.lanes = []
@@ -755,7 +757,83 @@ class Scoring():
         return lane_num, terminal_deg
 
         #SITA 0.5 LEFT 0.7
-    
+    def result_save_cuLane(self, lane_tensor, path_list):
+        for lanes, file_path in zip(lane_tensor, path_list):
+            output_dir = os.path.join(self.cfg.output_path, *file_path.split(os.sep)[:-1])
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = file_path.split(os.sep)[-1][:-3]+"lines.txt"
+            f = open(os.path.join(output_dir, output_path), 'w')
+            # print(lane)
+            for lane in lanes:
+                for point in lane:
+                    f.write("{} {} ".format(point[1], point[0]))
+                f.write("\n")
+        return
+    def result_save_tuSimple(self, lane_tensor, path_list):
+        # imgSaver = ImgSaver(self.cfg)
+        # imgSaver.device = self.cfg.device
+        filepaths=[]
+        save_image_num=20
+
+        evaluator = EDeval()
+        bench = LaneEval()
+
+
+        if len(lane_tensor) > 2700:
+            evaluator.save_JSON(lane_tensor, path_list)
+            print("BENCH1")
+            evaluator.eval_list = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+            lane_heatmap = evaluator.get_lane_table(evaluator.eval_list)
+            evaluator.sort_list()
+            #--------------------- Save Good Image ---------------
+            for idx, list in enumerate(evaluator.eval_list):
+                # print("ADDED {}".format(self.cfg.image_path))
+                # added_path = os.path.join(self.cfg.image_path, *list.filePath.split(os.sep)[1:])
+                added_path = os.path.join(self.cfg.dataset_path, *list.filePath.split(os.sep))
+                print("Dataset_path = {}".format(self.cfg.dataset_path))
+                print("ADDED22 {}".format(*list.filePath.split(os.sep)))
+                # imgSaver.save_image_dir_deg(inferencer, added_path, "bad")
+                if idx > save_image_num:
+                    break
+            #--------------------- Save Bad Image ---------------
+            for idx, list in enumerate(reversed(evaluator.eval_list)):
+                added_path = os.path.join(self.cfg.dataset_path, *list.filePath.split(os.sep))   #"/home/ubuntu/Hgnaseel_SHL/Dataset/tuSimple" + (need)"/0531/1492729085263099246/20.jpg")
+                # imgSaver.save_image_dir_deg(inferencer, added_path, "good")
+                if idx > save_image_num:
+                    break
+
+            evaluator.eval_list = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+            
+        else:
+            acc, fp, fn = 0,0,0
+            sum_dist = 0
+            sum_key_count = 0
+            for lane, file_path in zip(lane_tensor, path_list):
+                # if len(lane)>5:
+                #     lane = lane[0:5]
+                a, p, n = bench.bench_one_instance(lane, file_path,"./evaluator/gt.json")
+                acc += a
+                fp += p
+                fn += n
+                if True:
+                # if False:
+                    print("{} {} {}".format(a, p, n))
+                    print("Dataset_path = {}".format(self.cfg.dataset_path))
+                    print("file_path = {}".format(file_path))
+                    final_path = os.path.join(self.cfg.dataset_path, file_path)
+                    gt_lane = evaluator.getKeypoint(file_path)
+                    mean_dist, key_count = evaluator.key_eval_v2(gt_lane, lane)
+                    sum_dist += mean_dist
+                    sum_key_count +=key_count
+            
+            acc /=len(lane_tensor)
+            fp /=len(lane_tensor)
+            fn /=len(lane_tensor)
+            sum_dist = sum_dist/len(lane_tensor)
+            sum_key_count = sum_key_count/len(lane_tensor)
+            print("LANE : {} ACC : {: >5.4f}, FP : {: >0.3f}, FN : {: >0.3f}".format(len(lane_tensor), acc,fp,fn))
+            print("Key Point Mean square = {}, {}".format(sum_dist, sum_key_count))
+        return
     
     def chainKey2(self, new_key, terminal, terminal_deg, degmap, lane_num, print_mode = False):
 
@@ -994,39 +1072,7 @@ class Scoring():
         FP /= len(img_list)
         FN /= len(img_list)
         return loss, FP, FN
-
-    # def get_segmantation_CE(self, model, img_list, label_list, threshold):
-    #     idx=0
-    #     loss=0
-    #     for img_path, label_path in zip(img_list, label_list):
-    #         input_img = cv2.imread(img_path)
-    #         label_img = cv2.imread(label_path)
-    #         input_img = cv2.resize(input_img, (model.output_size[1], model.output_size[0]))
-    #         label_img = cv2.resize(label_img, (model.output_size[1], model.output_size[0]))
-    #         input_tensor = torch.unsqueeze(torch.from_numpy(input_img).to(self.device), dim=0).permute(0,3,1,2).float()
-    #         output_tensor = torch.squeeze(torch.squeeze(model(input_tensor))[1,:,:])
-    #         label_tensor = torch.squeeze(torch.from_numpy(label_img).to(self.device).permute(2,0,1).float()[0,:,:])
-
-
-    #         output_tensor = torch.where(output_tensor > threshold, 1, 0)
-    #         label_tensor = torch.where(label_tensor > 0.5, 1, 0)
-
-    #         print(output_tensor.shape)
-    #         print(label_tensor.shape)
-
-    #         print("IDX ------------- {} / {}".format(idx, len(img_list)))
-
-    #         cur_loss = abs(output_tensor - label_tensor).sum()
-    #         loss+=cur_loss
-    #         # label_lane = torch.where(label_tensor > threshold)
-    #         # output_lane = torch.where(output_tensor > threshold)
-    #         print("Loss {}".format(loss.item()))
-    #         print("Lane Num {} / {}".format(torch.count_nonzero(label_tensor), torch.count_nonzero(output_tensor)))
-    #         idx+=1
-    #     loss /= len(img_list)
-    #     return loss
-
-    def get_validation_set(self, path):
+    def get_validation_set_tuSimple(self, path):
         input_img_list, seg_img_list = [], []
         folder_list= glob.glob(os.path.join(path,"*"))
         for folder_path in folder_list:       
