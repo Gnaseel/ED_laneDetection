@@ -101,6 +101,8 @@ class LaneBuilder:
     def __init__(self, args):
         self.device = torch.device('cpu')
         self.cfg = args
+        self.kde_time=0
+        self.nor_time=0
         return
 
     # Key = [height, width], delta_image = 348*640 delta_up_image
@@ -252,62 +254,56 @@ class LaneBuilder:
         # top_height = 150
         doubled_lane = []
         temp_key_return = []
-        height_delta=-5
+        height_delta=5
         height = bottom_height
-        # print("TOP = {}".format(top_height))
-        for height in range(bottom_height, top_height, height_delta):
+
+        print("TOP = {}".format(top_height))
+        print("     SHPE = {}".format(heat_img.shape))
+        print("     SHPE = {} {}".format(bottom_height, top_height))
+        for height in range(bottom_height, top_height,5):
             sum_th = 0
             count_th=0
-        # while height >= top_height:
-        #     height +=  height_delta
-            # if height < 150:
-            #     height_delta= -3
-
             width_list=[]
-            # horizon_heat_key=[]
             pradicted_lane_key=[]
             notFound_lane_idx=[]
-
             horizon_heat_key = None
             if not Trad:
-                threshold = -1
-                # print("[get Key] HEIGHT {}, TH = {}". format(height, threshold))
+                nor_start_time = time.time()
+                sm = torch.nn.Softmax(dim=0)
 
-                threshold-=0.5
+                heat_img[height] = (heat_img[height]-heat_img[height].min())/(heat_img[height].max()-heat_img[height].min()) # Minmax scaling
+                # newnew = sm(heat_img[height]) # Softmax normalize
 
-                while False:
-                # while horizon_heat_key is None and threshold < 5:
-                    heat_width_list=[]
-                    threshold+=0.5
-                    ## 1. Get Key
-                    for j in range(30, heat_img.shape[1]-30, 1):
-                        # if  heat_img[height,j] > -2: #prev
-                        if  heat_img[height,j] > threshold:
-                            heat_width_list.append(j)
+                nor_end_time = time.time()
+                self.nor_time += nor_end_time-nor_start_time
 
-                    if len(heat_width_list)==0:
-                        break
-                    # print(heat_width_list)
-                    # horizon_heat_key = self.widthCluster(heat_width_list, height,5, use_mean_width=False)
-                    horizon_heat_key = self.widthCluster(heat_width_list, height, 5,  use_mean_width=True)
-
-
-                newnew = (heat_img[height]-heat_img[height].min())/(heat_img[height].max()-heat_img[height].min())
-                abc = torch.where(newnew>0.93)
-                # 
+                # KDE Start
+                kde_start_time = time.time()
+                abc = torch.where(heat_img[height]>0.00615)
+                # abc = torch.where(newnew>0.007)
                 a =np.array(abc[0]).reshape(-1, 1)
+                # print(f"---------A {a}")
+                # print(f"---------A {a.shape}")
+
+                if len(a)==0:
+                    continue
                 kde = KernelDensity(kernel='gaussian', bandwidth=3).fit(a)
                 s = np.linspace(0,heat_img.shape[1], heat_img.shape[1])
                 e = kde.score_samples(s.reshape(-1,1))
                 mi, ma = argrelextrema(e, np.less)[0], argrelextrema(e, np.greater)[0]
-                maa =  find_peaks(heat_img[height].detach().numpy())
+                # maa =  find_peaks(heat_img[height].detach().numpy())
+                kde_end_time = time.time()
+                self.kde_time += kde_end_time-kde_start_time
+                # print(f"---------MAA {maa}")
+                # print(f"---------MA {ma}")
                 # maa = argrelextrema(nnn, np.greater)[0]
                 # print("     MA = {}".format(ma.tolist()))
                 heat_width_list = ma
                 if heat_width_list is None or len(heat_width_list)==0:
                     continue
-                horizon_heat_key = self.widthCluster(ma, height, 20,  use_mean_width=True)
-                # print("RAW {}".format(heat_width_list))
+                horizon_heat_key = self.widthCluster(ma, height, 30,  use_mean_width=True)
+                # horizon_heat_key = self.widthCluster(ma, height, 50,  use_mean_width=False)
+                # print("RAW {}".format(horizon_heat_key))
 
                 # ma = ma.reshape(-1,1)
                 # ma = np.pad(ma, ((0,0),(1,0)), 'constant', constant_values=height)
@@ -335,7 +331,7 @@ class LaneBuilder:
                     continue
                 # print(heat_width_list)
                 # horizon_heat_key = self.widthCluster(heat_width_list, height,5, use_mean_width=False)
-                horizon_heat_key = self.widthCluster(heat_width_list, height, 30)
+                horizon_heat_key = self.widthCluster(heat_width_list, height, 50)
 
                 # print(horizon_heat_key)
                 if horizon_heat_key is not None:
@@ -434,7 +430,7 @@ class LaneBuilder:
                 break
         # if not Trad:
         #     print("     mean TH = {}".format(sum_th/count_th))
-        
+        # print(f"        KDE Time = {self.kde_time}, Nor Time = {self.nor_time}")
         return lane_data, temp_key_return
     def getMaxHeight(self, heat_img):
         max_height = 80
@@ -448,7 +444,8 @@ class LaneBuilder:
     
     # key_list = [ [height,width] * n_of_key ] * n_of_height
     # heat_img = [ background_img, lane_img ]
-    def getLanefromHeat(self, heat_img, delta_img, temp_raw_image=None):
+    def getLanefromHeat(self, heat_img, delta_img, temp_raw_image=None, idx=0):
+
         draw_mode = True
         # draw_mode = False
         th=-3
@@ -459,8 +456,8 @@ class LaneBuilder:
         max_height = self.getMaxHeight(compat_heat)
 
 
-        # key_list=self.getKeyfromHeat(compat_heat, delta_img[:,:,0], 200, 0)  #Trad
-        key_list=self.getKeyfromHeat_adaptiveThreshold(heat_lane2, delta_img[:,:,0], max_height, heat_lane2.shape[0]-20, 0.8, 40) # Adaptive_threshold
+        key_list=self.getKeyfromHeat(compat_heat, delta_img[:,:,0], 200, 0)  #Trad
+        # key_list=self.getKeyfromHeat_adaptiveThreshold(heat_lane2, delta_img[:,:,0], max_height, heat_lane2.shape[0]-20, 0.8, 40) # Adaptive_threshold
         # key_list2=self.getKeyfromHeat_adaptiveThreshold(heat_lane2, delta_img[:,:,0], 160, 200, 0.93, 20) # Adaptive_threshold
 
         # print(key_list)
@@ -473,26 +470,43 @@ class LaneBuilder:
         # max_height = self.getMaxHeight(heat_lane2.detach().numpy())
         heat_np = heat_lane2.detach().numpy()
         heat_com_np = heat_lane2.detach().numpy()
-        for height in range(heat_np.shape[0]):
-            heat_np[height] = heat_np[height]*(255.0/heat_np[height].max())
-        time.sleep(1.0)
-        cv2.imwrite("data/heat.png",heat_np)
+        
+        sm = torch.nn.Softmax(dim=0)
+                # 
+        # for i, item in enumerate(heat_np):
+        # #     heat_np[i] = sm(heat_np[i]) # Softmax normalize
+        # for height in range(heat_np.shape[0]):
+        #     heat_np[height] = (heat_np[height]-heat_np[height].min())/(heat_np[height].max()-heat_np[height].min()) # Minmax scaling
+        # time.sleep(1.0)
+        def softmax(x):
+            y = np.exp(x - np.max(x))
+            f_x = y / np.sum(np.exp(x))
+            return f_x
+        
+        # for height in range(heat_np.shape[0], max_height):
+        print("SSSSSSSSSHAPE {}".format(heat_np.shape))
+        for height in range(max_height, heat_np.shape[0]):
+            heat_np[height] = softmax(heat_np[height])
+        cv2.imwrite("data/heat.png",(heat_np)*100000000)
         cv2.imwrite("data/heat_com.png",compat_heat*100)
         
         
-        # lane_data2, up_key_list = self.predict_horizon_v2(compat_heat, lane_data, 195, max_height, Trad = True) #STD 80
-        lane_data2, up_key_list2 = self.predict_horizon_v2(compat_heat, lane_data2, 5, max_height, Trad = True) #STD 80
-        lane_data, up_key_list = self.predict_horizon_v2(heat_lane2, lane_data, 5, max_height, Trad = False) #STD 80
+        # lane_data2, up_key_list = self.predict_horizon_v2(compat_heat, lane_data, 5, max_height, Trad = True) #STD 80
+        # lane_data2, up_key_list2 = self.predict_horizon_v2(compat_heat, lane_data2, 5, max_height, Trad = True) #STD 80
         
+        # lane_data2, up_key_list = self.predict_horizon_v2(heat_lane2, lane_data, max_height, 200, Trad = False) #STD 80
+        lane_data2, up_key_list = self.predict_horizon_v2(compat_heat, lane_data, max_height, 200, Trad = True) #STD 80
+        # print(f"Lane data = ")
         # print(up_key_list)
         # for height in up_key_list:
         #     print(height)
-        new_list = lane_data.tensor2lane()
+        new_list = lane_data2.tensor2lane()
         new_list.sort(key=len, reverse=True)
         re_list=[]
         for item in new_list:
             if len(item) > 5:
                 re_list.append(item)
+        print(f"Lane data = {re_list}")
 
         if self.cfg.dataset == "tuSimple":
             re_list = self.getLanebyH_sample_deg(re_list, 160, 710, 10)
@@ -508,7 +522,9 @@ class LaneBuilder:
         # cv2.imwrite("SIBAL22.png",heat_img[0].cpu().detach().numpy()*10)
         # cv2.imwrite("SIBAL33.png",heat_img[1].cpu().detach().numpy()*10)
         # self.temp_Key_drawer(temp_raw_image.copy(), key_list)
-        draw_mode = False 
+
+        # draw_mode = False 
+        draw_mode = True 
         if draw_mode:
             if self.cfg.dataset=="tuSimple":
                 output_size = (640, 368)
@@ -534,17 +550,17 @@ class LaneBuilder:
             for height in all_key:
                 # print(key)
                 for key in height:
-                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
+                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,255,255), -1)
                                 # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
             cv2.imwrite("data/keys_all.png",resized_raw_img)
             
-            all_key2 = up_key_list2+key_list
-            for height in all_key2:
-                # print(key)
-                for key in height:
-                    resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
-                                # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
-            cv2.imwrite("data/keys_all2.png",resized_raw_img)
+            # all_key2 = up_key_list2+key_list
+            # for height in all_key2:
+            #     # print(key)
+            #     for key in height:
+            #         resized_raw_img = cv2.circle(resized_raw_img, (key[1], key[0]), 2, (0,0,255), -1)
+            #                     # cv2.circle(output_right_circle_image, startPoint, 1, (255,0,0), -1)
+            # cv2.imwrite("data/keys_all2.png",resized_raw_img)
             self.temp_lane_drawer_laneObject(temp_raw_image.copy(), lane_data, "data/temptemp2")
 
         return re_list

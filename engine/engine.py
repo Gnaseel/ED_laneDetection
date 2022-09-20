@@ -105,7 +105,6 @@ class EngineTheRun():
         else:
             inferencer.inference()
     def scoring(self):
-
         keyPointMode = False
         # keyPointMode = True
         inferencer = Inference(self.cfg)
@@ -141,7 +140,9 @@ class EngineTheRun():
         # if self.cfg.backbone=="ResNet34_deg":
         if self.cfg.backbone=="ResNet34_deg"  or self.cfg.backbone=="ResNet18_delta_SCNN" or self.cfg.backbone=="ResNet34_delta_SCNN":
 
-            lane_tensor, path_list = inferencer.inference_dir_deg()
+            # lane_tensor, path_list = inferencer.inference_dir_deg()
+            lane_tensor, path_list = inferencer.inference_dir_deg_batch()
+            return
             print("DEG FINIASHED")
 
         elif self.cfg.backbone=="ResNet34_seg" or self.cfg.backbone=="ResNet18_seg_SCNN"  or self.cfg.backbone=="ResNet34_seg_SCNN" :

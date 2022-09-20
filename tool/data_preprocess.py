@@ -81,7 +81,7 @@ def convert_label(output_dir, data, instancewise=True):
 # Have to change gt label_*_*
 def tuSimple_gt2seg():
     jsonPath = '/workspace/data/tuSimple'
-    outputPath = jsonPath+"/seged_gt/clips"
+    outputPath = jsonPath+"/seg_label"
     json_string = 'label_*_*.json'
     lane_data = readJSON(jsonPath, json_string)
     convert_label(outputPath, lane_data)
@@ -89,7 +89,7 @@ def tuSimple_gt2seg():
 def get_npFromtuSimple(dataPath, savePath):
    
     imageSubpath = ""
-    gtSubpath = "seged_gt"
+    gtSubpath = "seg_label"
     
     json_string = 'label_data_*.json'
     input_path_list = glob.glob(os.path.join(dataPath, json_string))
@@ -106,7 +106,8 @@ def get_npFromtuSimple(dataPath, savePath):
             data = json.loads(line)
             # print("------------")
             raw_path = os.path.join(dataPath, data["raw_file"])
-            gt_path = os.path.join(dataPath, gtSubpath, data["raw_file"])[:-3]+"png"
+
+            gt_path = os.path.join(dataPath, gtSubpath, data["raw_file"][6:])[:-3]+"png"
             # print(raw_path)
             # print(gt_path)
             img = cv2.imread(raw_path)
@@ -197,7 +198,7 @@ if __name__=="__main__":
     # tuSimple_gt2seg()
 
     # 2. Get npy file from raw+segmented image (tuSimple)
-    get_npFromtuSimple(dataPath="/workspace/data/tuSimple", savePath="/workspace/src/ED_laneDetection/data/img_tuSimple_0215")
+    get_npFromtuSimple(dataPath="/workspace/data/tuSimple", savePath="/workspace/src/data/img_tuSimple_0901")
     # 3. Get npy file from raw+segmented image (cuLane)
     # get_npFromcuLANE(dataPath = "/workspace/data/cuLane", savePath = "/workspace/src/ED_laneDetection/data", fileName="train_gt")
 

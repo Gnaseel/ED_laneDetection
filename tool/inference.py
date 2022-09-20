@@ -3,6 +3,7 @@ from genericpath import exists
 from numpy.core.arrayprint import format_float_positional
 import torch
 import cv2
+from evaluator.lane import LaneEval
 import numpy as np
 from tool.scoring import Scoring
 import matplotlib.pyplot as plt
@@ -47,9 +48,8 @@ class Inference():
         self.time_network = 0
         self.time_post_process= 0
 
-    def inference_instance(self, img, filepath=""):
+    def inference_instance(self, img, filepath, idx):
 
-        start_time = time.time()
         if self.cfg.dataset=="tuSimple":
             output_size = (640, 368)
         elif self.cfg.dataset=="cuLane":
@@ -58,38 +58,116 @@ class Inference():
         # pl = PostProcess_Logic()
         # pl.device = self.device
         #Loop
+        start_time = time.time()
         input_tensor = torch.unsqueeze(torch.from_numpy(img).to(self.device), dim=0).permute(0,3,1,2).float()
-        output_delta_tensor = self.model(input_tensor)
-        out_delta = output_delta_tensor[0].permute(1,2,0).cpu().detach().numpy()
+        model_in_time = time.time()
+        # output_delta_tensor = self.model(input_tensor)
+        # out_delta = output_delta_tensor[0].permute(1,2,0).cpu().detach().numpy()
         output_tensor = torch.squeeze(self.model2(input_tensor))
-
         model_out_time = time.time()
-        #prev
-        # out_heat = torch.where(output_tensor[1] > output_tensor[0], torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
 
+
+        #prev
+        time1 = time.time()
+        out_heat_t = output_tensor.cpu().detach().numpy()
+        time2 = time.time()
+        out_heat_t = output_tensor.cpu()
+        time3 = time.time()
+        # out_heat = torch.where(output_tensor[1] > output_tensor[0], torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
+        out_heat = np.where(out_heat_t[1] > out_heat_t[0], 1, 0)
         #Changed
-        th=-1
-        out_heat = torch.where(output_tensor[0] < th, torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
+        # th=-1
+        # out_heat = torch.where(output_tensor[0] < th, torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
         
         
         builder = LaneBuilder(self.cfg)
         builder.device = self.cfg.device
         # my_lane_list = builder.getKeyfromDelta(out_delta)
 
+        # time1 = time.time()
+        my_lane_list = builder.getLanefromHeat(output_tensor, output_tensor, img, idx)
+        # time3 = time.time()
 
-        my_lane_list = builder.getLanefromHeat(output_tensor, out_delta, img)
+
         if len(my_lane_list)>5:
             my_lane_list = my_lane_list[0:5]
         lane_output_time = time.time()
-        
+
+        # print(f"Model - Time {model_out_time - model_in_time}")
+        # print(f"AFTER1 - Time {time2 - time1}")
+        # print(f"AFTER2 - Time {time3 - time2}")
+        # print(f"Total - Time {time2 - model_in_time}")
         self.time_network +=model_out_time-start_time
         self.time_post_process +=lane_output_time - model_out_time
 
         return my_lane_list, None, None
         # return my_lane_list, output_tensor, output_delta_tensor
     
-    def inference(self):
+    def inference_instance_batch(self, img_list, filepath=""):
 
+        if self.cfg.dataset=="tuSimple":
+            output_size = (640, 368)
+        elif self.cfg.dataset=="cuLane":
+            output_size = (800, 300)
+        for idx, img in enumerate(img_list):
+            img_list[idx] = cv2.resize(img, output_size)
+        # pl = PostProcess_Logic()
+        # pl.device = self.device
+        img_list = np.array(img_list)
+        print(f"SHPE {img_list.shape}")
+        #Loop
+        start_time = time.time()
+        input_tensor = torch.from_numpy(img_list).to(self.device).permute(0,3,1,2).float()
+        model_in_time = time.time()
+        # output_delta_tensor = self.model(input_tensor)
+        # out_delta = output_delta_tensor[0].permute(1,2,0).cpu().detach().numpy()
+        output_tensor = torch.squeeze(self.model2(input_tensor))
+        model_out_time = time.time()
+        print(f"SHPE22 {output_tensor.shape}")
+
+
+        #prev
+        time1 = time.time()
+        out_heat_t = output_tensor.cpu().detach().numpy()
+        time2 = time.time()
+        # out_heat_t = output_tensor.cpu()
+        time3 = time.time()
+        # out_heat = torch.where(output_tensor[1] > output_tensor[0], torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
+        out_heat = np.where(out_heat_t[1] > out_heat_t[0], 1, 0)
+        #Changed
+        # th=-1
+        # out_heat = torch.where(output_tensor[0] < th, torch.tensor(1).to(self.device), torch.tensor(0).to(self.device)).cpu().detach().numpy()
+        
+        
+        builder = LaneBuilder(self.cfg)
+        builder.device = self.cfg.device
+        # my_lane_list = builder.getKeyfromDelta(out_delta)
+
+        # time1 = time.time()
+        my_lane_list = builder.getLanefromHeat(output_tensor[0], output_tensor, img, idx)
+        # time3 = time.time()
+
+
+        if len(my_lane_list)>5:
+            my_lane_list = my_lane_list[0:5]
+        lane_output_time = time.time()
+
+        print(f"Model - Time {model_out_time - model_in_time}")
+        print(f"AFTER1 - Time {time2 - time1}")
+        print(f"AFTER2 - Time {time3 - time2}")
+        print(f"Total - Time {time2 - model_in_time}")
+        self.time_network +=model_out_time-start_time
+        self.time_post_process +=lane_output_time - model_out_time
+
+        return my_lane_list, model_out_time - model_in_time, None
+        # return my_lane_list, output_tensor, output_delta_tensor
+    
+
+    def inference(self):
+        # evaluator = EDeval()
+        # bench = LaneEval()
+        # evaluator.eval_list = bench.bench_one_submit("./back_logic/result_li.json","./evaluator/gt.json")
+        # return
         #----------------------- Get Image ---------------------------------------------
         # /clips/0530/1492626047222176976_0/20.jpg
         path = os.path.join(self.dataset_path, self.image_path)
@@ -97,7 +175,7 @@ class Inference():
         img = cv2.resize(img, (self.model.output_size[1], self.model.output_size[0]))
 
         #----------------------- Inference ---------------------------------------------
-        my_lane_list, output_heat_tensor, output_delta_tensor = self.inference_instance(img, path)
+        my_lane_list, output_heat_tensor, output_delta_tensor = self.inference_instance(img, path, 0)
 
 
         # imgSaver = ImgSaver(self.cfg)
@@ -205,12 +283,12 @@ class Inference():
             # imgSaver.img_keypoint_save(full_file_path, keypoint_list, file_path) 
             # return
             ## HERE 
-            my_lane_list, temp, temp2 = self.inference_instance(img, full_file_path)
+            my_lane_list, temp, temp2 = self.inference_instance(img, full_file_path, idx)
             pathlist.append(file_path)
             lanelist.append(my_lane_list)
             end_time = time.time()
 
-            # print("TIME = {}".format(end_time-input_time))
+            print("TIME =={}".format(end_time-input_time))
             # print("")
 
             # if True:
@@ -224,6 +302,78 @@ class Inference():
         print("Time = {}".format(time.time()-total_time))
         print("Network time = {}".format(self.time_network / len(lanelist)))
         print("PostProcess time = {}".format(self.time_post_process / len(lanelist)))
+        return lanelist, pathlist
+    
+    def inference_dir_deg_batch(self):
+        idx=0
+        start_idx=0
+        end_idx=3000
+        # start_idx=300
+        # end_idx=310
+        self.print_inference_option()
+        total_time = time.time()
+        print("Inference_deg")
+        lanelist = []
+        pathlist = []
+        self.model = self.model.to(self.device)
+        imgSaver = ImgSaver(self.cfg)
+
+        # path=self.cfg.image_path
+        # folder_list= glob.glob(os.path.join(path,"*"))
+        # file_num=0
+        start_time = time.time()
+        if self.cfg.dataset_path.split(os.sep)[-1]=="tuSimple":
+            test_list = self.get_test_list_tuSimple()
+        else:
+            test_list = self.get_test_list_cuLane()
+
+        tttt=0
+        evaluator = EDeval()
+        image_list=[]
+        for file_path in test_list:
+
+            idx+=1
+            if idx<start_idx:
+                continue
+            if idx > end_idx:
+                break
+                return lanelist, pathlist
+            full_file_path = os.path.join(self.dataset_path, file_path)
+            # re_path = os.path.join(*file_path[:])
+            #----------------------- Get Image ---------------------------------------------
+
+            img = cv2.imread(full_file_path)
+            input_time = time.time()
+            if len(image_list)<5:
+                image_list.append(img)
+            else:
+                my_lane_list, temp, temp2 = self.inference_instance(image_list[0], full_file_path, idx)
+                # my_lane_list, temp, temp2 = self.inference_instance_batch(image_list, full_file_path)
+                end_time = time.time()
+                print("TIME =={}".format(end_time-input_time))
+                # tttt+=temp
+                image_list.clear()
+                # if len(lanelist)%100==0:
+                #     print("Idx {}".format(len(lanelist)))
+                #     end_time = time.time()
+                #     print(end_time-start_time)
+                #     start_time = end_time
+
+        print("Inference Finished!")
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        print("Time = {}".format(tttt))
+        # print("Time = {}".format(time.time()-total_time))
+        print("Network time = {}".format(self.time_network / len(lanelist)))
+        print("PostProcess time = {}".format(self.time_post_process / len(lanelist)))
+        return None
         return lanelist, pathlist
     
     def inference_dir(self):

@@ -36,8 +36,8 @@ class Trainer():
         # self.datasets_path_list=[0 for i in range(0,100)]
         self.dataset_dir="./data/"
         self.datasets_path_list=[]
-        self.datasets_path_list.append(self.dataset_dir+"img_culane_0404_35.npy")
-        # self.datasets_path_list.append(self.dataset_dir+"img_tuSimple_0215.npy")
+        # self.datasets_path_list.append(self.dataset_dir+"img_culane_0404_35.npy")
+        self.datasets_path_list.append(self.dataset_dir+"img_tuSimple_0901.npy")
     
     def train_seg(self):
         # --------------------- Path Setting -------------------------------------------
@@ -276,12 +276,14 @@ class Trainer():
 
         # --------------------- Load Dataset -------------------------------------------
        
-        data_loader = self.getDataLoader_from_np()
+        # data_loader = self.getDataLoader_from_np()
+        data_loader = self.getDataLoader_from_np(self.device, self.datasets_path_list[0])
+
         #self.getModel()
 
         # print(self.model)
         # --------------------- Train -------------------------------------------
-        criterion = torch.nn.BCELoss(weight=torch.tensor([40]), reduction="mean")
+        criterion = torch.nn.BCELoss(weight=torch.tensor([20]), reduction="mean")
         optimizer = torch.optim.Adam(self.model.parameters(), lr=0.0001)
 
         self.model.train()
