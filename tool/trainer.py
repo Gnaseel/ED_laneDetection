@@ -256,7 +256,7 @@ class Trainer():
         if self.cfg.backbone=="ResNet50":
             batch_size=4
         else:
-            batch_size=8
+            batch_size=4
         data_loader = DataLoader(dataset=train_dataset,batch_size=batch_size,shuffle=True)
         
 #         print(x_train.requires_grad)

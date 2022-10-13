@@ -114,7 +114,7 @@ class Inference():
         # pl = PostProcess_Logic()
         # pl.device = self.device
         img_list = np.array(img_list)
-        print(f"SHPE {img_list.shape}")
+        # print(f"SHPE {img_list.shape}")
         #Loop
         start_time = time.time()
         input_tensor = torch.from_numpy(img_list).to(self.device).permute(0,3,1,2).float()
@@ -123,7 +123,7 @@ class Inference():
         # out_delta = output_delta_tensor[0].permute(1,2,0).cpu().detach().numpy()
         output_tensor = torch.squeeze(self.model2(input_tensor))
         model_out_time = time.time()
-        print(f"SHPE22 {output_tensor.shape}")
+        # print(f"SHPE22 {output_tensor.shape}")
 
 
         #prev
@@ -152,10 +152,10 @@ class Inference():
             my_lane_list = my_lane_list[0:5]
         lane_output_time = time.time()
 
-        print(f"Model - Time {model_out_time - model_in_time}")
-        print(f"AFTER1 - Time {time2 - time1}")
-        print(f"AFTER2 - Time {time3 - time2}")
-        print(f"Total - Time {time2 - model_in_time}")
+        # print(f"Model - Time {model_out_time - model_in_time}")
+        # print(f"AFTER1 - Time {time2 - time1}")
+        # print(f"AFTER2 - Time {time3 - time2}")
+        # print(f"Total - Time {time2 - model_in_time}")
         self.time_network +=model_out_time-start_time
         self.time_post_process +=lane_output_time - model_out_time
 
@@ -288,7 +288,7 @@ class Inference():
             lanelist.append(my_lane_list)
             end_time = time.time()
 
-            print("TIME =={}".format(end_time-input_time))
+            # print("TIME =={}".format(end_time-input_time))
             # print("")
 
             # if True:
@@ -341,16 +341,15 @@ class Inference():
             full_file_path = os.path.join(self.dataset_path, file_path)
             # re_path = os.path.join(*file_path[:])
             #----------------------- Get Image ---------------------------------------------
-
             img = cv2.imread(full_file_path)
             input_time = time.time()
-            if len(image_list)<5:
+            if len(image_list)<20:
                 image_list.append(img)
             else:
-                my_lane_list, temp, temp2 = self.inference_instance(image_list[0], full_file_path, idx)
-                # my_lane_list, temp, temp2 = self.inference_instance_batch(image_list, full_file_path)
+                # my_lane_list, temp, temp2 = self.inference_instance(image_list[0], full_file_path, idx)
+                my_lane_list, temp, temp2 = self.inference_instance_batch(image_list, full_file_path)
                 end_time = time.time()
-                print("TIME =={}".format(end_time-input_time))
+                # print("TIME =={}".format(end_time-input_time))
                 # tttt+=temp
                 image_list.clear()
                 # if len(lanelist)%100==0:
@@ -373,7 +372,6 @@ class Inference():
         # print("Time = {}".format(time.time()-total_time))
         print("Network time = {}".format(self.time_network / len(lanelist)))
         print("PostProcess time = {}".format(self.time_post_process / len(lanelist)))
-        return None
         return lanelist, pathlist
     
     def inference_dir(self):

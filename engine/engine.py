@@ -59,28 +59,6 @@ class EngineTheRun():
         # trainer.dataset_path = "D:\\lane_dataset\\img_lane_640.npy"
         trainer.dataset_path = "/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy"
 
-        # tuSimple
-        # trainer.datasets_path_list.append("/home/ubuntu/Hgnaseel_SHL/Dataset/segmented_img_1027.npy")
-        # cuLane
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_1.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_2.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_3.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_4.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_5.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_6.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_7.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_8.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_9.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_10.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_11.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_12.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_13.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_14.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_15.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_16.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_17.npy")
-        # trainer.datasets_path.append("/home/ubuntu/Hgnaseel_SHL/Network/edLane/tool/img_culane_0111_1.npy")
-
         if self.cfg.backbone=="ResNet34_seg" or self.cfg.backbone=="ResNet18_seg_SCNN":
             trainer.train_seg()
         if self.cfg.backbone=="ResNet34_delta":
@@ -140,9 +118,8 @@ class EngineTheRun():
         # if self.cfg.backbone=="ResNet34_deg":
         if self.cfg.backbone=="ResNet34_deg"  or self.cfg.backbone=="ResNet18_delta_SCNN" or self.cfg.backbone=="ResNet34_delta_SCNN":
 
-            # lane_tensor, path_list = inferencer.inference_dir_deg()
-            lane_tensor, path_list = inferencer.inference_dir_deg_batch()
-            return
+            lane_tensor, path_list = inferencer.inference_dir_deg()
+            # lane_tensor, path_list = inferencer.inference_dir_deg_batch()
             print("DEG FINIASHED")
 
         elif self.cfg.backbone=="ResNet34_seg" or self.cfg.backbone=="ResNet18_seg_SCNN"  or self.cfg.backbone=="ResNet34_seg_SCNN" :
